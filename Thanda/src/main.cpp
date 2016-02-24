@@ -13,7 +13,7 @@ int main()
     }
 
     glfwWindowHint(GLFW_SAMPLES, 4);
-    glfwWindowHint(GLFW_RESIZABLE,GL_FALSE);
+    glfwWindowHint(GLFW_RESIZABLE,GL_TRUE);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); // To make MacOS happy; should not be needed
@@ -56,14 +56,14 @@ int main()
     //AntTweakBar
 //    TwInit(TW_OPENGL_CORE, NULL);
 
-    GLuint programID = LoadShaders( "shaders/Particle.vertexshader", "shaders/Particle.fragmentshader" );
+    GLuint programID = LoadShaders( "src/shaders/Particle.vertexshader", "src/shaders/Particle.fragmentshader" );
     /* for particles and billboards */
     // Vertex shader
     GLuint CameraRight_worldspace_ID  = glGetUniformLocation(programID, "CameraRight_worldspace");
     GLuint CameraUp_worldspace_ID  = glGetUniformLocation(programID, "CameraUp_worldspace");
     GLuint ViewProjMatrixID = glGetUniformLocation(programID, "VP");
 
-    char* filename = "scene/scene1.json";
+    char* filename = "src/scene/scene1.json";
     std::vector<float> inputs;
     Scene s;
     json_parser js;
@@ -73,7 +73,7 @@ int main()
     GLuint TextureID  = glGetUniformLocation(programID, "myTextureSampler");
     /*end particles*/
     /* for cube */
-    GLuint programIDCube = LoadShaders( "shaders/TransformVertexShader.vertexshader", "shaders/ColorFragmentShader.fragmentshader" );
+    GLuint programIDCube = LoadShaders( "src/shaders/TransformVertexShader.vertexshader", "src/shaders/ColorFragmentShader.fragmentshader" );
 
     // Get a handle for our "MVP" uniform
     /*end cube*/
@@ -143,7 +143,7 @@ int main()
     static GLfloat* g_particule_position_size_data = new GLfloat[ps.MaxParticles * 4];
     static GLubyte* g_particule_color_data         = new GLubyte[ps.MaxParticles * 4];
 
-    GLuint Texture = loadDDS("shaders/particle.DDS");
+    GLuint Texture = loadDDS("src/shaders/particle.DDS");
     // The VBO containing the 4 vertices of the particles.
     // Thanks to instancing, they will be shared by all particles.
     static const GLfloat g_vertex_buffer_data[] = {

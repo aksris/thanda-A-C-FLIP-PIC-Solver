@@ -25,29 +25,45 @@ set(GLEW_LIBRARY_DIR ${CMAKE_LIBRARY_PATH})
 find_package(OPENGL REQUIRED)
 find_package(GLEW)
 find_library(GLFW_LIBRARY "glfw3" HINTS ${GLFW_LIBRARY_DIR})
-find_library(JSON_CPP "jsoncpp")
+find_library(JSONCPP "jsoncpp")
+add_definitions(
+        -DTW_STATIC
+        -DTW_NO_LIB_PRAGMA
+        -DTW_NO_DIRECT3D
+        -DGLEW_STATIC
+        -D_CRT_SECURE_NO_WARNINGS
+)
+set(CORE_LIBS ${GLFW_LIBRARY} ${GLUT_LIBRARY} ${GLEW_LIBRARY} ${JSONCPP} ${OPENGL_LIBRARY} )
 
-set(CORE_LIBS ${GLFW_LIBRARY} ${GLEW_LIBRARY} ${JSON_CPP} ${OPENGL_LIBRARY})
-
+# OSX-specific hacks/fixes
 if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+    #Link IOKit because this is where we get GL stuff for OSX
     set(COREVIDEO "-framework CoreVideo")
     set(IOKIT "-framework IOKit")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -03 -m64 -msse2 -w")
-    set(CORE_LIBS ${CORE_LIBS} ${COREVIDEO} ${IOKIT})
-endif()
+    set(CORELIBS ${CORELIBS} ${IOKIT} ${COREVIDEO})
+endif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 
+# Linux specific hacks/fixes
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lX11 -lXxf86vm -lXrandr -lpthread -lXi")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -03 -m64 -msse2 -w")
 endif()
 
-#if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
+if(${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -O3 -m64 -msse2 -w")
+elseif(WIN32)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+endif()
+
 if(MSVC)
-#    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:SSE2")
-    set(COMPILER_FLAGS CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE CMAKE_C_FLAGS CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_RELEASE)
-    foreach(COMPILER_FLAG ${COMPILER_FLAGS})
-        string (REPLACE "/MD" "/MT" ${COMPILER_FLAG} "${${COMPILER_FLAG}}")
-    endforeach()
+    set(COMPILER_FLAGS CMAKE_CXX_FLAGS
+                     CMAKE_CXX_FLAGS_DEBUG
+                     CMAKE_CXX_FLAGS_RELEASE
+                     CMAKE_C_FLAGS CMAKE_C_FLAGS_DEBUG
+                     CMAKE_C_FLAGS_RELEASE)
+
+#    foreach(COMPILER_FLAG ${COMPILER_FLAGS})
+#        string (REPLACE "/MD" "/MT" ${COMPILER_FLAG} "${${COMPILER_FLAG}}")
+#    endforeach()
 endif()
 
 set(CORE_SRC
