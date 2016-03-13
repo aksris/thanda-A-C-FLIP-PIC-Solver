@@ -76,6 +76,8 @@ set(CORE_SRC
 
     src/scene/scene.cpp
 
+    src/scene/container.cpp
+
     src/common/shader.cpp
 
     src/common/controls.cpp
@@ -85,6 +87,12 @@ set(CORE_SRC
     src/common/objloader.cpp
 
     src/common/vboindexer.cpp
+
+    src/sph/sphParticle.cpp
+
+    src/sph/sphSolver.cpp
+
+    src/sph/sphUtils.cpp
 
 )
 
