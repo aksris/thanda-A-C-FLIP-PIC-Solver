@@ -15,7 +15,8 @@ public:
 	SPHSolver(Container *container, ParticleSystem *particles);
 	void step();
 private:
-	void stepSingle(); // run a neighbor search and do computations per neighbor
+	void stepSingle(Particle *p);
+	void naiveNeighborSearch(Particle *p, std::vector<Particle*> &neighbors);
 	float computeDensityContrib(Particle *p, Particle *neighbor);
 };
 
