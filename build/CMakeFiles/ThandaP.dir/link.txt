@@ -1,3 +1,0 @@
-D:\CMake\bin\cmake.exe -E remove -f CMakeFiles\ThandaP.dir/objects.a
-D:\Qt\Tools\mingw491_32\bin\ar.exe cr CMakeFiles\ThandaP.dir/objects.a @CMakeFiles\ThandaP.dir\objects1.rsp
-D:\Qt\Tools\mingw491_32\bin\g++.exe     -Wl,--whole-archive CMakeFiles\ThandaP.dir/objects.a -Wl,--no-whole-archive  -o ThandaP.exe -Wl,--out-implib,libThandaP.dll.a -Wl,--major-image-version,0,--minor-image-version,0 @CMakeFiles\ThandaP.dir\linklibs.rsp

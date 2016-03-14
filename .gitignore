@@ -1,0 +1,8 @@
+Thanda.xcodeproj
+Thanda.build
+DerivedData
+CMakeScripts
+CMakeFiles
+CMakeCache.txt
+cmake_install.cmake
+CMakeLists.txt.user
