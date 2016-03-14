@@ -1,0 +1,11 @@
+SPH TODO - 3/13/2016
+-implement containers
+	-virtual collide
+	-get these hooked up with the glviewer (which is all in main...)
+	-do the cube implementation
+-implement kernels in sphUtils.cpp
+-implement sphParticle class
+	-subclass of the normal particlesystem particle
+-implement sphSolver class
+	-init: replace all particles in the particleSystem with sphParticles
+	-solve: standard sph pipeline things

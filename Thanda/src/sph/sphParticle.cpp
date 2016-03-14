@@ -1,4 +1,4 @@
-include "sphPartile.h"
+#include "sphParticle.h"
 
 SPHParticle::SPHParticle() : Particle() {
 

@@ -1,7 +1,7 @@
 #include "glm\glm.hpp"
 #include <vector>
-#include <math.h>
 #define _USE_MATH_DEFINES
+#include <math.h>
 
 class SPHUtils {
 	public:
@@ -16,4 +16,6 @@ class SPHUtils {
 		static float kernelPoly(float h, float dist);
 		static glm::vec3 kernelGradSpiky(float h, glm::vec3 distVector, float dist);
 		static float kernelLaplacianViscous(float h, float dist);
+
+		SPHUtils();
 };

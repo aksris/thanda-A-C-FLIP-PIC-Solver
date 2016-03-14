@@ -80,55 +80,9 @@ int main()
 
     /* MVP matrices */
     GLuint cubeMatrixID = glGetUniformLocation(programIDCube, "MVP");
-    static const GLfloat g_cube_vertex_buffer_data[] = {
-        -0.5f, -0.5f, -0.5f,
-        -0.5f, -0.5f, 0.5f,
-        -0.5f, 0.5f, 0.5f,
-        -0.5f, 0.5f, -0.5f,
-        0.5f, -0.5f, -0.5f,
-        0.5f, -0.5f, 0.5f,
-        0.5f, 0.5f, 0.5f,
-        0.5f, 0.5f, -0.5f
-    };
+	Container *cubeContainer = new Container();
+	cubeContainer->modelMatrix = glm::scale(glm::mat4(1.f), glm::vec3(s.containerBounds.x, s.containerBounds.y, s.containerBounds.z));
 
-    std::vector<GLuint> cub_idx;
-
-    cub_idx.push_back(0);
-    cub_idx.push_back(1);
-    cub_idx.push_back(1);
-    cub_idx.push_back(2);
-    cub_idx.push_back(2);
-    cub_idx.push_back(3);
-    cub_idx.push_back(3);
-    cub_idx.push_back(0);
-
-    cub_idx.push_back(0);
-    cub_idx.push_back(4);
-    cub_idx.push_back(1);
-    cub_idx.push_back(5);
-    cub_idx.push_back(2);
-    cub_idx.push_back(6);
-    cub_idx.push_back(3);
-    cub_idx.push_back(7);
-
-    cub_idx.push_back(4);
-    cub_idx.push_back(5);
-    cub_idx.push_back(5);
-    cub_idx.push_back(6);
-    cub_idx.push_back(6);
-    cub_idx.push_back(7);
-    cub_idx.push_back(7);
-    cub_idx.push_back(4);
-
-    GLuint elementbuffer;
-    glGenBuffers(1, &elementbuffer);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementbuffer);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, cub_idx.size() * sizeof(GLuint), &cub_idx[0] , GL_STATIC_DRAW);
-
-    GLuint cubevertexbuffer;
-    glGenBuffers(1, &cubevertexbuffer);
-    glBindBuffer(GL_ARRAY_BUFFER, cubevertexbuffer);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(g_cube_vertex_buffer_data), g_cube_vertex_buffer_data, GL_STATIC_DRAW);
     /*end MVP matrices cube*/
 
     GLuint VertexArrayID;
@@ -192,6 +146,10 @@ int main()
 
         glm::mat4 ViewProjectionMatrixParticles = ProjectionMatrixParticles * ViewMatrixParticles;
 
+		// testing collision detection. TODO: remove
+		glm::vec3 nor;
+		glm::vec3 pos;
+
         //simulation loop
         int ParticlesCount = 0;
         for(int i=0; i< ps.ParticlesContainer.size(); i++){
@@ -208,6 +166,19 @@ int main()
             g_particule_position_size_data[4*ParticlesCount+2] = p.pos.z;
 
             g_particule_position_size_data[4*ParticlesCount+3] = p.size;
+
+			// testing collision detection. TODO: remove
+			if (cubeContainer->collisionDetect(&p, (float)delta, pos, nor)) {
+				p.r = abs(nor.r) * 220;
+				p.g = abs(nor.g) * 220;
+				p.b = abs(nor.b) * 220;
+			}
+			else {
+				p.r = 0;
+				p.g = 0;
+				p.b = 220;
+			}
+			
 
             g_particule_color_data[4*ParticlesCount+0] = p.r;
             g_particule_color_data[4*ParticlesCount+1] = p.g;
@@ -300,14 +271,13 @@ int main()
         //cube
         glDisable(GL_BLEND);
         glUseProgram(programIDCube);
-        glm::mat4 cubeModelMatrix(glm::scale(glm::mat4(1.f),glm::vec3(s.containerBounds.x, s.containerBounds.y, s.containerBounds.z )));
-        glm::mat4 cubeMVP = ProjectionMatrixParticles * ViewMatrixParticles * cubeModelMatrix;
+        glm::mat4 cubeMVP = ProjectionMatrixParticles * ViewMatrixParticles * cubeContainer->modelMatrix;
         glUniformMatrix4fv(cubeMatrixID, 1, GL_FALSE, &cubeMVP[0][0]);
         glEnableVertexAttribArray(0);
-        glBindBuffer(GL_ARRAY_BUFFER, cubevertexbuffer);
+		glBindBuffer(GL_ARRAY_BUFFER, cubeContainer->vertexBuffer);
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0  );
 
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementbuffer);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cubeContainer->elementBuffer);
 
         glDrawElements(GL_LINES, 36, GL_UNSIGNED_INT, 0);
         glDisableVertexAttribArray(0);
@@ -321,6 +291,8 @@ int main()
     }while( glfwGetKey(window, GLFW_KEY_ESCAPE ) != GLFW_PRESS &&
             glfwWindowShouldClose(window) == 0 );
 
+	// end simulation cleanup
+
     delete[] g_particule_position_size_data;
 
     // Cleanup VBO and shader
@@ -332,8 +304,7 @@ int main()
     glDeleteVertexArrays(1, &VertexArrayID);
 
     // Cleanup VBO and shader
-    glDeleteBuffers(1, &cubevertexbuffer);
-    glDeleteBuffers(1, &elementbuffer);
+	delete cubeContainer;
     glDeleteProgram(programIDCube);
     glDeleteVertexArrays(1, &VertexArrayIDCube);
 

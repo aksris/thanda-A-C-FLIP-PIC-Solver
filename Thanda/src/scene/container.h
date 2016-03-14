@@ -15,5 +15,13 @@ public:
 	std::vector<GLuint> gl_indices;
 	std::vector<glm::vec3> gl_positions;
 
-	bool collisionDetect(Particle *p);
+	Container();
+	~Container();
+	virtual bool collisionDetect(Particle *p, float dt, glm::vec3 &coll_Pos, glm::vec3 &coll_Nor);
 };
+
+// helpers for cube intersection
+bool inUnitCube(glm::vec3 point);
+float rayPlaneISX(glm::vec3 pos, glm::vec3 dir, glm::vec3 planePos, glm::vec3 norm);
+bool nearlyEqual(float a, float b, float epsilon);
+void checkSlab(glm::vec3 pos, glm::vec3 dir, float &nearMax, glm::vec3 &nearNorm, float &farMin, glm::vec3 &farNorm, glm::vec3 norm, glm::vec3 pos1, glm::vec3 pos2);

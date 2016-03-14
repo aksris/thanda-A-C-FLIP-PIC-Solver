@@ -23,5 +23,7 @@ using namespace std;
 #include <stdlib.h>
 #include <string.h>
 
+#include "scene/container.h"
+
 #endif // MAIN
 
