@@ -1,5 +1,9 @@
 #include "main.h"
 
+// set the solver type
+#define VIEWER_DEBUG 0
+#define USE_SPH 1
+
 using namespace std;
 
 
@@ -126,6 +130,10 @@ int main()
     //generate particles
     ps.genParticles(s.particle_separation, s.particleBounds.x, s.particleBounds.y, s.particleBounds.z);
 
+#if USE_SPH
+	SPHSolver sphSolve = SPHSolver(cubeContainer, &ps);
+#endif
+
     double lastTime = glfwGetTime();
     do {
         // Clear the screen
@@ -146,9 +154,9 @@ int main()
 
         glm::mat4 ViewProjectionMatrixParticles = ProjectionMatrixParticles * ViewMatrixParticles;
 
-		// testing collision detection. TODO: remove
-		glm::vec3 nor;
-		glm::vec3 pos;
+#if USE_SPH
+		sphSolve.step();
+#endif
 
         //simulation loop
         int ParticlesCount = 0;
@@ -156,29 +164,17 @@ int main()
 
             Particle& p = ps.ParticlesContainer[i]; // shortcut
 
+#if VIEWER_DEBUG
             p.speed += glm::vec3(0.0f,-9.81f, 0.0f) * (float)delta * 0.5f;
             p.pos += p.speed * (float)delta;
             p.cameradistance = glm::length2( p.pos - CameraPosition );
+#endif
 
             // Fill the GPU buffer
             g_particule_position_size_data[4*ParticlesCount+0] = p.pos.x;
             g_particule_position_size_data[4*ParticlesCount+1] = p.pos.y;
             g_particule_position_size_data[4*ParticlesCount+2] = p.pos.z;
-
             g_particule_position_size_data[4*ParticlesCount+3] = p.size;
-
-			// testing collision detection. TODO: remove
-			if (cubeContainer->collisionDetect(&p, (float)delta, pos, nor)) {
-				p.r = abs(nor.r) * 220;
-				p.g = abs(nor.g) * 220;
-				p.b = abs(nor.b) * 220;
-			}
-			else {
-				p.r = 0;
-				p.g = 0;
-				p.b = 220;
-			}
-			
 
             g_particule_color_data[4*ParticlesCount+0] = p.r;
             g_particule_color_data[4*ParticlesCount+1] = p.g;

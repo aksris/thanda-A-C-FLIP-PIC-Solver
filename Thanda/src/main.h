@@ -24,6 +24,7 @@ using namespace std;
 #include <string.h>
 
 #include "scene/container.h"
+#include "sph/sphSolver.h"
 
 #endif // MAIN
 

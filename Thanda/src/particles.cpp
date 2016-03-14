@@ -12,6 +12,8 @@ Particle::Particle(){
     weight = 0.f;
     life = 1.f;
     cameradistance = 10.f;
+	density = 0;
+	pressure = 0;
 }
 
 ParticleSystem::ParticleSystem(){

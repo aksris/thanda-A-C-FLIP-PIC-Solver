@@ -1,3 +1,6 @@
+#ifndef CONTAINER_H
+#define CONTAINER_H
+
 #include "glm\glm.hpp"
 #include "GL\glew.h"
 #include <vector>
@@ -25,3 +28,5 @@ bool inUnitCube(glm::vec3 point);
 float rayPlaneISX(glm::vec3 pos, glm::vec3 dir, glm::vec3 planePos, glm::vec3 norm);
 bool nearlyEqual(float a, float b, float epsilon);
 void checkSlab(glm::vec3 pos, glm::vec3 dir, float &nearMax, glm::vec3 &nearNorm, float &farMin, glm::vec3 &farNorm, glm::vec3 norm, glm::vec3 pos1, glm::vec3 pos2);
+
+#endif

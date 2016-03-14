@@ -88,8 +88,6 @@ set(CORE_SRC
 
     src/common/vboindexer.cpp
 
-    src/sph/sphParticle.cpp
-
     src/sph/sphSolver.cpp
 
     src/sph/sphUtils.cpp
