@@ -1,8 +1,8 @@
 {
 	"containerDim" : {
-        "scaleX" : 15.0,
-		"scaleY" : 10.0,
-		"scaleZ" : 10.0
+        "scaleX" : 5.0,
+		"scaleY" : 5.0,
+		"scaleZ" : 5.0
 	},
 	"particleDim" : {
         "boundX" : 2.7,

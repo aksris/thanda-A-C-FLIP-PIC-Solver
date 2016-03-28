@@ -25,6 +25,9 @@ using namespace std;
 #include "../geom/cube.h"
 #include <stdlib.h>
 #include <string.h>
+
+#define VISCOSITY 0.0f
+
 class Viewer {
 public:
     Viewer(int width, int height, Scene s);

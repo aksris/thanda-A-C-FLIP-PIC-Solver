@@ -183,22 +183,8 @@ void Viewer::display(){
     fluid.genParticles(scene.particle_separation, scene.particleBounds.x, scene.particleBounds.y, scene.particleBounds.z);
     Camera camera;
     //construct mac grid
-//    std::vector<Cell> grid;
 
     fluid.constructMACGrid(scene.containerBounds);
-
-    for(Particle p : fluid.ParticlesContainer){
-        fluid.initMACGrid(p);
-    }
-
-//    int cellsize = 1;
-
-//    std::pair<Cell, int> mac_grid_unit;
-//    //fill mac grid
-//    for (Particle p : fluid.ParticlesContainer){
-//        mac_grid_unit = fluid.fillMACGrid(cellsize, p);
-//        grid.at(mac_grid_unit.second) = mac_grid_unit.first;
-//    }
 
     double lastTime = glfwGetTime();
     do{
@@ -208,6 +194,8 @@ void Viewer::display(){
         double currentTime = glfwGetTime();
         double delta = currentTime - lastTime;
         lastTime = currentTime;
+
+        delta *= 0.01f;
 
         camera.computeMatricesFromInputs(window);
         glm::mat4 ProjectionMatrixParticles = camera.getProjectionMatrix();
@@ -219,33 +207,61 @@ void Viewer::display(){
         glm::vec3 CameraPosition(glm::inverse(ViewMatrixParticles)[3]);
 
         glm::mat4 ViewProjectionMatrixParticles = ProjectionMatrixParticles * ViewMatrixParticles;
-
-        for(Particle p : fluid.ParticlesContainer){
-            fluid.initMACGrid(p);
-            fluid.calculateDensity(p);
-            fluid.calculateGravityForces(p);
+        glm::vec3 pos, nor;
+        for (int i = 0; i < fluid.ParticlesContainer.size(); ++i){
+            //init MAC grid
+            //calulate density
+            fluid.calculateGravityForces(fluid.ParticlesContainer[i], delta);
         }
 
         fluid.storeParticleVelocityToGrid();
+//        fluid.clearGrid();
         fluid.storeCurrentGridVelocities();
 
+        fluid.setBoundaryVelocitiesToZero(scene.containerBounds);
         //pressure solve
-        fluid.projectPressure();
-        fluid.calculateNewGridVelocities();
+//        fluid.ProjectPressure();
+
+//        fluid.calculateNewGridVelocities();
         fluid.setBoundaryVelocitiesToZero(scene.containerBounds);
         fluid.ExtrapolateVelocity();
 
         //flip
+        fluid.FlipSolve();
+        fluid.PicSolve();
 
+        for(int i = 0; i < fluid.ParticlesContainer.size(); ++i){
+            fluid.ParticlesContainer.at(i).speed = (1.f - VISCOSITY) * fluid.particle_save_pic.at(i).speed
+                    + VISCOSITY * fluid.particle_save.at(i).speed;
+            fluid.ParticlesContainer.at(i).pos = fluid.integratePos(fluid.ParticlesContainer.at(i).pos,
+                                                                    fluid.ParticlesContainer.at(i).speed, delta, false);
+        }
 
+        for(int i = 0; i < fluid.ParticlesContainer.size(); ++i){
+            if (cube.collisionDetect(&fluid.ParticlesContainer.at(i), delta, pos, nor)) {
+                fluid.ParticlesContainer.at(i).r = abs(nor.r) * 220;
+                fluid.ParticlesContainer.at(i).g = abs(nor.g) * 220;
+                fluid.ParticlesContainer.at(i).b = abs(nor.b) * 220;
+//                fluid.ParticlesContainer.at(i).speed *= -nor;
+                vec3 mask = vec3(1.f) - nor;
+                fluid.ParticlesContainer.at(i).pos = vec3(mask.x*fluid.ParticlesContainer.at(i).pos.x,
+                                                          mask.y*fluid.ParticlesContainer.at(i).pos.y,
+                                                          mask.z*fluid.ParticlesContainer.at(i).pos.z);
+//                fluid.ParticlesContainer.at(i).pos += fluid.ParticlesContainer.at(i).pos * -nor * 0.00005f;
+
+            }
+            else {
+                fluid.ParticlesContainer.at(i).r = 0;
+                fluid.ParticlesContainer.at(i).g = 0;
+                fluid.ParticlesContainer.at(i).b = 220;
+            }
+        }
+        fluid.clearGrid();
         //simulation loop
         int ParticlesCount = 0;
         for(int i=0; i< fluid.ParticlesContainer.size(); i++){
 
             Particle& p = fluid.ParticlesContainer[i]; // shortcut
-
-            p.speed += glm::vec3(0.0f,-9.81f * 0.f, 0.0f) * (float)delta * 0.5f;
-            p.pos += p.speed * (float)delta;
             p.cameradistance = glm::length2( p.pos - CameraPosition );
 
             // Fill the GPU buffer
@@ -295,8 +311,9 @@ void Viewer::display(){
         //cube
         glDisable(GL_BLEND);
         glUseProgram(programIDGeometry);
-        glm::mat4 cubeModelMatrix(glm::scale(glm::mat4(1.f),glm::vec3(scene.containerBounds.x, scene.containerBounds.y, scene.containerBounds.z )));
-
+        glm::mat4 cubeModelMatrix = glm::translate(glm::mat4(1.f), glm::vec3(scene.containerBounds.x / 2.f, scene.containerBounds.y / 2.f, scene.containerBounds.z / 2.f)) ;
+        cubeModelMatrix = (glm::scale(cubeModelMatrix,glm::vec3(scene.containerBounds.x, scene.containerBounds.y, scene.containerBounds.z )));
+        cube.modelMatrix = cubeModelMatrix;
         glm::mat4 cubeMVP = ProjectionMatrixParticles * ViewMatrixParticles * cubeModelMatrix;
 
         glUniformMatrix4fv(geomMatrixID, 1, GL_FALSE, &cubeMVP[0][0]);

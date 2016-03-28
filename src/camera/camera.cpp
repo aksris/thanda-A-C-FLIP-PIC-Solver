@@ -7,7 +7,7 @@
 
 Camera::Camera(){
     initialFOV = 45.f;
-    position = glm::vec3(0, 0, 5.5f / tan(glm::radians(initialFOV / 2.f)));
+    position = glm::vec3(2.f, 2.f, 5.5f / tan(glm::radians(initialFOV / 2.f)));
     horizontalAngle = 3.14f;
     verticalAngle = 0.f;
     speed = 20.f;
