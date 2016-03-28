@@ -104,6 +104,8 @@ public:
     void buildDivergences(Eigen::VectorXd& u, int n);
     void fillPressureGrid(Eigen::VectorXd x, int n);
 
+    void CalculateGravityToCell(float delta);
+
     void insertCoefficient(int id, int i, int j, int k, double w, std::vector<Eigen::Triplet<double> > &coeffs, int n);
 
     void calculateNewGridVelocities();
@@ -126,6 +128,6 @@ public:
 };
 float Smooth(const float& r2, const float& h);
 float Sharpen(const float& r2, const float& h);
-float StiffKernel(const vec3 &r, const float& h);
+float StiffKernel(const vec3 &r, const float& cell_width);
 float Sqrlength(const glm::vec3& p0, const glm::vec3& p1);
 #endif /* fluidSolver_hpp */

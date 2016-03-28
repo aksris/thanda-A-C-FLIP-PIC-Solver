@@ -195,7 +195,7 @@ void Viewer::display(){
         double delta = currentTime - lastTime;
         lastTime = currentTime;
 
-        delta *= 0.01f;
+        delta = 0.001f;
 
         camera.computeMatricesFromInputs(window);
         glm::mat4 ProjectionMatrixParticles = camera.getProjectionMatrix();
@@ -211,20 +211,21 @@ void Viewer::display(){
         for (int i = 0; i < fluid.ParticlesContainer.size(); ++i){
             //init MAC grid
             //calulate density
-            fluid.calculateGravityForces(fluid.ParticlesContainer[i], delta);
+//            fluid.calculateGravityForces(fluid.ParticlesContainer[i], delta);
         }
+        fluid.CalculateGravityToCell(delta);
 
         fluid.storeParticleVelocityToGrid();
 //        fluid.clearGrid();
         fluid.storeCurrentGridVelocities();
 
-        fluid.setBoundaryVelocitiesToZero(scene.containerBounds);
+//        fluid.setBoundaryVelocitiesToZero(scene.containerBounds);
         //pressure solve
 //        fluid.ProjectPressure();
 
 //        fluid.calculateNewGridVelocities();
-        fluid.setBoundaryVelocitiesToZero(scene.containerBounds);
-        fluid.ExtrapolateVelocity();
+//        fluid.setBoundaryVelocitiesToZero(scene.containerBounds);
+//        fluid.ExtrapolateVelocity();
 
         //flip
         fluid.FlipSolve();
@@ -244,9 +245,9 @@ void Viewer::display(){
                 fluid.ParticlesContainer.at(i).b = abs(nor.b) * 220;
 //                fluid.ParticlesContainer.at(i).speed *= -nor;
                 vec3 mask = vec3(1.f) - nor;
-                fluid.ParticlesContainer.at(i).pos = vec3(mask.x*fluid.ParticlesContainer.at(i).pos.x,
-                                                          mask.y*fluid.ParticlesContainer.at(i).pos.y,
-                                                          mask.z*fluid.ParticlesContainer.at(i).pos.z);
+//                fluid.ParticlesContainer.at(i).pos = vec3(mask.x*fluid.ParticlesContainer.at(i).pos.x,
+//                                                          mask.y*fluid.ParticlesContainer.at(i).pos.y,
+//                                                          mask.z*fluid.ParticlesContainer.at(i).pos.z);
 //                fluid.ParticlesContainer.at(i).pos += fluid.ParticlesContainer.at(i).pos * -nor * 0.00005f;
 
             }

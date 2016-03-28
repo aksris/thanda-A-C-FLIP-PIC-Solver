@@ -100,15 +100,32 @@ void FluidSolver::particlesInit(){
         ParticlesContainer[i].size = 0.1f;
     }
 }
+float rand(int LO, int HI){
+    return LO + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(HI-LO)));
+}
 
 void FluidSolver::genParticles(float particle_separation, float boundx, float boundy, float boundz){
     Particle p;
-    for(float i = 0.5f; i < boundx + 0.5f; i+= particle_separation){
-        for(float j = 1.5f; j < boundy +1.5f; j+= particle_separation){
-            for(float k = 0; k <boundz ; k+= particle_separation){
-                p.pos = glm::vec3(i, j, k);
-                ParticlesContainer.push_back(p);
-                p.gridIdx = vec3(int(i), int(j), int(k));
+//    for(float i = 0.5f; i < boundx + 0.5f; i+= particle_separation){
+//        for(float j = 1.5f; j < boundy +1.5f; j+= particle_separation){
+//            for(float k = 0; k <boundz ; k+= particle_separation){
+//                p.pos = glm::vec3(i, j, k);
+//                ParticlesContainer.push_back(p);
+//                p.gridIdx = vec3(int(i), int(j), int(k));
+//            }
+//        }
+//    }
+
+    for(int i = 1; i < (int)boundx+1; i++){
+        for(int j = 1; j < (int)boundy+1; j++){
+            for(int k = 1; k < (int)boundz+1; k++){
+                int iter = 0;
+                while(iter < 8){
+                    p.pos = vec3(rand(i,i+1), rand(j,j+1), rand(k, k+1));
+                    p.gridIdx = vec3(i,j,k);
+                    ParticlesContainer.push_back(p);
+                    iter++;
+                }
             }
         }
     }
@@ -192,11 +209,29 @@ float Sharpen(const float& r2, const float& h) {
     return glm::max(h*h/glm::max(r2,(float)1.0e-5) - 1.0f, 0.0f);
 }
 
-float StiffKernel(const vec3& r, const float& h){
-    float r2 = pow(glm::length(r), 2);
-    if(r2 > 0 && r2 <= h)
-        return glm::max((h*h) / r2 - 1, 0.0f);
-    return 0.f;
+float h(float r){
+    if(r >= 0.f && r <= 1.f)
+        return 1.f - r;
+    else if(-1.f <= r && r <= 0.f)
+        return 1.f + r;
+    else
+        return 0.f;
+}
+
+float StiffKernel(const vec3& r, const float& cell_width){
+    return h(r.x/cell_width)*h(r.y/cell_width)*h(r.z/cell_width);
+}
+
+void FluidSolver::CalculateGravityToCell(float delta){
+    vec3 speed;
+    for (int i = 0; i < 5; i++){
+        for (int j = 0; j < 5; j++){
+            for (int k = 0; k < 5; k++){
+                speed = glm::vec3(0.f, -9.81f , 0.f) * delta;
+                grid.vel_V.setCell(i,j,k, speed.y);
+            }
+        }
+    }
 }
 
 void FluidSolver::storeParticleVelocityToGrid(){
@@ -209,15 +244,19 @@ void FluidSolver::storeParticleVelocityToGrid(){
         grid.P.setCellMark(x, y, z, FLUID, true);
 
         vec3 r = ParticlesContainer.at(i).pos - (index + vec3(0.f, 0.5f, 0.5f));
-        grid.vel_U.setCellAdd(x, y, z, ParticlesContainer.at(i).speed.x * StiffKernel(r, h) * 0.00001f);
+        grid.vel_U.setCellAdd(x, y, z, ParticlesContainer.at(i).speed.x * StiffKernel(r, h) * 0.125f);
 
         r = ParticlesContainer.at(i).pos - (index + vec3(0.5f, 0.f, 0.5f));
-        grid.vel_V.setCellAdd(x, y, z, ParticlesContainer.at(i).speed.y * StiffKernel(r, h) * 0.00001f);
+        grid.vel_V.setCellAdd(x, y, z, ParticlesContainer.at(i).speed.y * StiffKernel(r, h) * 0.125f);
 
         r = ParticlesContainer.at(i).pos - (index + vec3(0.5f, 0.5f, 0.f));
-        grid.vel_W.setCellAdd(x, y, z, ParticlesContainer.at(i).speed.z * StiffKernel(r, h) * 0.00001f);
+        grid.vel_W.setCellAdd(x, y, z, ParticlesContainer.at(i).speed.z * StiffKernel(r, h) * 0.125f);
 
     }
+//    Gathering
+
+//    for()
+
     initializeMarkerGrid();
 }
 
@@ -401,7 +440,8 @@ void FluidSolver::ProjectPressure(){
     A.setFromTriplets(coefficients.begin(), coefficients.end());
 
     //solve
-    Eigen::SimplicialCholesky<Eigen::SparseMatrix<double>> chol(A);  // performs a Cholesky factorization of A
+    Eigen::ConjugateGradient<Eigen::SparseMatrix<double>> chol;  // performs a Cholesky factorization of A
+    chol.compute(A);
     Eigen::VectorXd p = chol.solve(u);
     fillPressureGrid(p, m);
 }
@@ -416,7 +456,8 @@ vec3 FluidSolver::integratePos(const vec3 pos, const vec3 speed, float time_step
         //RK2 integration
         vec3 k1 = speed * (pos) * time_step / 2.f;
         vec3 k2 = speed * (pos + k1) * time_step;
-        new_pos = pos + k2;
+//        new_pos = pos + k2;
+        new_pos = pos + speed * time_step;
     }
     else{
         //RK4
