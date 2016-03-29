@@ -563,3 +563,43 @@ void FluidSolver::clearGrid(){
     std::fill(grid.P.data.begin(), grid.P.data.end(), 0.f);
     std::fill(grid.P.mData.begin(), grid.P.mData.end(), 0.f);
 }
+
+void FluidSolver::step(){
+    // Step 3 - Store Particle Velocity at current time step to MACGrid
+    this->storeParticleVelocityToGrid();
+    
+    // Step 4 - Add Body Forces like Gravity to MACGrid
+    this->CalculateGravityToCell(delta);
+    
+    // Step 5 - Store a temporary copy of Grid Velocities for FLIP
+    this->storeCurrentGridVelocities();
+    
+    //        this->setBoundaryVelocitiesToZero(scene.containerBounds);
+    //pressure solve
+    //        this->ProjectPressure();
+    
+    //        this->calculateNewGridVelocities();
+    //        this->setBoundaryVelocitiesToZero(scene.containerBounds);
+    //        this->ExtrapolateVelocity();
+    
+    // Step  - Calculate new flip & pic velocities for each particle
+    this->FlipSolve();
+    this->PicSolve();
+    
+    // Step - Lerp(FLIPVelocity, PICVelocity, 0.95)
+    for(int i = 0; i < this->ParticlesContainer.size(); ++i){
+        this->ParticlesContainer.at(i).speed = (1.f - VISCOSITY) * this->particle_save_pic.at(i).speed
+        + VISCOSITY * this->particle_save.at(i).speed;
+        this->ParticlesContainer.at(i).pos = this->integratePos(this->ParticlesContainer.at(i).pos,
+                                                                this->ParticlesContainer.at(i).speed, delta, true);
+    }
+    // Step - Collision Response
+    for(int i = 0; i < this->ParticlesContainer.size(); ++i){
+        if (this->ParticlesContainer.at(i).pos.y < EPSILON){
+            this->ParticlesContainer.at(i).speed *= -(vec3(0.f, 1.f, 0.f));
+            this->ParticlesContainer.at(i).pos += this->ParticlesContainer.at(i).speed
+            * (float)delta ;
+        }
+    }
+    this->clearGrid();
+}

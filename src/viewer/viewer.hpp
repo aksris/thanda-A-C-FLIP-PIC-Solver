@@ -26,13 +26,13 @@ using namespace std;
 #include <stdlib.h>
 #include <string.h>
 
-#define VISCOSITY 0.95f
-#define EPSILON 0.00001f
-
 class Viewer {
 public:
     Viewer(int width, int height, Scene s);
     void initializeGL();
+    void initializeShader();
+
+    void drawCube();
     void drawParticles(int ParticlesCount);
     void allocateParticleBuffers(GLuint billboard_vertex_buffer, GLuint particles_position_buffer, GLuint particles_color_buffer);
     void display();
@@ -40,7 +40,21 @@ public:
     int w, h;
     Scene scene;
     Cube cube;
+    Camera camera;
+    FluidSolver fluid;
     GLuint CameraRight_worldspace_ID, CameraUp_worldspace_ID,  ViewProjMatrixID, programID, TextureID, programIDGeometry, geomMatrixID;
+    GLuint elementbuffer, cubevertexbuffer;
+
     GLFWwindow* window;
+    
+    glm::mat4 ProjectionMatrix;
+    glm::mat4 ViewMatrix;
+    // We will need the camera's position in order to sort the particles
+    // w.r.t the camera's distance.
+    // There should be a getCameraPosition() function in common/controls.cpp,
+    // but this works too.
+    glm::vec3 CameraPosition;
+    
+    
 };
 #endif /* viewer_hpp */

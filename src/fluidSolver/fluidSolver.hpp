@@ -26,6 +26,11 @@
 using namespace glm;
 
 enum geomtype {AIR = 0, FLUID = 1, SOLID = 2};
+#define VISCOSITY 0.95f
+#define EPSILON 0.00001f
+
+
+
 class Particle{
 
 public:
@@ -94,6 +99,7 @@ public:
     void storeParticleVelocityToGrid();
     void storeCurrentGridVelocities();
 
+    void step();
     void clearGrid();
 
     void naiveNeighborSearch(Particle *p, std::vector<Particle> &neighbors);
@@ -124,6 +130,9 @@ public:
     void sortParticles();
     void particlesInit();
     void genParticles(float particle_separation, float boundx, float boundy, float boundz);
+    
+    float delta = 0.01f;
+
 
 };
 float Smooth(const float& r2, const float& h);
