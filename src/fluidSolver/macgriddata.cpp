@@ -118,14 +118,14 @@ float MACGridData::interpolate(const vec3& pt)
    float fract_party = scale * (pos[1] - j*CellSize);
    float fract_partz = scale * (pos[2] - k*CellSize);
 
-   float v000 = (*this)(i > gDimension[0]? gDimension[0] : i, j > gDimension[1]? gDimension[1] : j, k > gDimension[2]? gDimension[2] : k);
-   float v010 = (*this)(i > gDimension[0]? gDimension[0] : i, j+1 > gDimension[1]? gDimension[1] : j + 1,k > gDimension[2]? gDimension[2] : k);
-   float v100 = (*this)(i+1 > gDimension[0]? gDimension[0] : i+1, j > gDimension[1]? gDimension[1] : j, k > gDimension[2]? gDimension[2] : k);
-   float v110 = (*this)(i+1 > gDimension[0]? gDimension[0] : i+1,j+1 > gDimension[1]? gDimension[1] : j + 1,k > gDimension[2]? gDimension[2] : k);
-   float v001 = (*this)(i > gDimension[0]? gDimension[0] : i, j > gDimension[1]? gDimension[1] : j, k+1 > gDimension[2] ? gDimension[2] : k + 1);
-   float v011 = (*this)(i > gDimension[0]? gDimension[0] : i,j+1,k+1 > gDimension[2] ? gDimension[2] : k + 1);
-   float v101 = (*this)(i+1 > gDimension[0]? gDimension[0] : i+1,j > gDimension[1]? gDimension[1] : j,k+1 > gDimension[2] ? gDimension[2] : k + 1);
-   float v111 = (*this)(i+1 > gDimension[0]? gDimension[0] : i+1,j+1 > gDimension[1]? gDimension[1] : j + 1,k+1 > gDimension[2] ? gDimension[2] : k + 1);
+   float v000 = (*this)(i >= gDimension[0]? gDimension[0] - 1 : i, j >= gDimension[1]? gDimension[1]    -1: j, k >= gDimension[2]? gDimension[2] -1 : k);
+   float v010 = (*this)(i >= gDimension[0]? gDimension[0] - 1 : i, j+1 >= gDimension[1]? gDimension[1]  -1: j + 1,k >= gDimension[2]? gDimension[2]-1 : k);
+   float v100 = (*this)(i+1 >= gDimension[0]? gDimension[0] -1 : i+1, j >= gDimension[1]? gDimension[1] -1: j, k >= gDimension[2]? gDimension[2] -1: k);
+   float v110 = (*this)(i+1 >= gDimension[0]? gDimension[0] -1 : i+1,j+1 >= gDimension[1]? gDimension[1]-1: j + 1,k >= gDimension[2]? gDimension[2] -1: k);
+   float v001 = (*this)(i >= gDimension[0]? gDimension[0] -1 : i, j >= gDimension[1]? gDimension[1]     -1: j, k+1 >= gDimension[2] ? gDimension[2] -1: k + 1);
+   float v011 = (*this)(i >= gDimension[0]? gDimension[0] -1 : i,j+1 >= gDimension[1]? gDimension[1]-1: j + 1,k+1 >= gDimension[2] ? gDimension[2] -1: k+1);
+   float v101 = (*this)(i+1 >= gDimension[0]? gDimension[0] -1 : i+1,j >= gDimension[1]? gDimension[1]    -1: j,k+1 >= gDimension[2] ? gDimension[2] -1: k + 1);
+   float v111 = (*this)(i+1 >= gDimension[0]? gDimension[0] -1 : i+1,j+1 >= gDimension[1]? gDimension[1]  -1: j + 1,k+1 >= gDimension[2] ? gDimension[2]-1 : k + 1);
 
    float lerp1 = LERP(v000, v010, fract_party);
    float lerp2 = LERP(v100, v110, fract_party);

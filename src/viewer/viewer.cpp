@@ -195,7 +195,7 @@ void Viewer::display(){
         double delta = currentTime - lastTime;
         lastTime = currentTime;
 
-        delta = 0.001f;
+        delta = 0.1f;
 
         camera.computeMatricesFromInputs(window);
         glm::mat4 ProjectionMatrixParticles = camera.getProjectionMatrix();
@@ -208,15 +208,10 @@ void Viewer::display(){
 
         glm::mat4 ViewProjectionMatrixParticles = ProjectionMatrixParticles * ViewMatrixParticles;
         glm::vec3 pos, nor;
-        for (int i = 0; i < fluid.ParticlesContainer.size(); ++i){
-            //init MAC grid
-            //calulate density
-//            fluid.calculateGravityForces(fluid.ParticlesContainer[i], delta);
-        }
+
         fluid.CalculateGravityToCell(delta);
 
         fluid.storeParticleVelocityToGrid();
-//        fluid.clearGrid();
         fluid.storeCurrentGridVelocities();
 
 //        fluid.setBoundaryVelocitiesToZero(scene.containerBounds);
@@ -235,26 +230,14 @@ void Viewer::display(){
             fluid.ParticlesContainer.at(i).speed = (1.f - VISCOSITY) * fluid.particle_save_pic.at(i).speed
                     + VISCOSITY * fluid.particle_save.at(i).speed;
             fluid.ParticlesContainer.at(i).pos = fluid.integratePos(fluid.ParticlesContainer.at(i).pos,
-                                                                    fluid.ParticlesContainer.at(i).speed, delta, false);
+                                                                    fluid.ParticlesContainer.at(i).speed, delta, true);
         }
 
         for(int i = 0; i < fluid.ParticlesContainer.size(); ++i){
-            if (cube.collisionDetect(&fluid.ParticlesContainer.at(i), delta, pos, nor)) {
-                fluid.ParticlesContainer.at(i).r = abs(nor.r) * 220;
-                fluid.ParticlesContainer.at(i).g = abs(nor.g) * 220;
-                fluid.ParticlesContainer.at(i).b = abs(nor.b) * 220;
-//                fluid.ParticlesContainer.at(i).speed *= -nor;
-                vec3 mask = vec3(1.f) - nor;
-//                fluid.ParticlesContainer.at(i).pos = vec3(mask.x*fluid.ParticlesContainer.at(i).pos.x,
-//                                                          mask.y*fluid.ParticlesContainer.at(i).pos.y,
-//                                                          mask.z*fluid.ParticlesContainer.at(i).pos.z);
-//                fluid.ParticlesContainer.at(i).pos += fluid.ParticlesContainer.at(i).pos * -nor * 0.00005f;
-
-            }
-            else {
-                fluid.ParticlesContainer.at(i).r = 0;
-                fluid.ParticlesContainer.at(i).g = 0;
-                fluid.ParticlesContainer.at(i).b = 220;
+            if (fluid.ParticlesContainer.at(i).pos.y < EPSILON){
+                fluid.ParticlesContainer.at(i).speed *= -(vec3(0.f, 1.f, 0.f));
+                fluid.ParticlesContainer.at(i).pos += fluid.ParticlesContainer.at(i).speed
+                                                      * (float)delta ;
             }
         }
         fluid.clearGrid();

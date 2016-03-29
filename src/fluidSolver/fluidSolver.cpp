@@ -106,16 +106,6 @@ float rand(int LO, int HI){
 
 void FluidSolver::genParticles(float particle_separation, float boundx, float boundy, float boundz){
     Particle p;
-//    for(float i = 0.5f; i < boundx + 0.5f; i+= particle_separation){
-//        for(float j = 1.5f; j < boundy +1.5f; j+= particle_separation){
-//            for(float k = 0; k <boundz ; k+= particle_separation){
-//                p.pos = glm::vec3(i, j, k);
-//                ParticlesContainer.push_back(p);
-//                p.gridIdx = vec3(int(i), int(j), int(k));
-//            }
-//        }
-//    }
-
     for(int i = 1; i < (int)boundx+1; i++){
         for(int j = 1; j < (int)boundy+1; j++){
             for(int k = 1; k < (int)boundz+1; k++){

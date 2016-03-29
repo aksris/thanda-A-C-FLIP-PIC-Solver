@@ -26,7 +26,8 @@ using namespace std;
 #include <stdlib.h>
 #include <string.h>
 
-#define VISCOSITY 0.0f
+#define VISCOSITY 0.95f
+#define EPSILON 0.00001f
 
 class Viewer {
 public:
