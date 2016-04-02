@@ -115,7 +115,7 @@ void FluidSolver::genParticles(float particle_separation, float boundx, float bo
                 int iter = 0;
                 while(iter < 8){
                     p.pos = vec3(rand(i,i+1), rand(j,j+1), rand(k, k+1));
-                    p.speed = vec3(0.f, -1.f, 0.f);
+                    p.speed = vec3(0.f, -8.f, 0.f);
                     p.gridIdx = vec3(i,j,k);
                     ParticlesContainer.push_back(p);
                     iter++;
@@ -172,9 +172,9 @@ void FluidSolver::PicSolve(){
     //for every particle, set the new grid velocity
     //interpolate
     for(int i = 0; i < particle_save_pic.size(); i++){
-        particle_save_pic.at(i).speed.x = grid.vel_U.interpolate(particle_save_pic.at(i).pos);
+//        particle_save_pic.at(i).speed.x = grid.vel_U.interpolate(particle_save_pic.at(i).pos);
         particle_save_pic.at(i).speed.y = grid.vel_V.interpolate(particle_save_pic.at(i).pos);
-        particle_save_pic.at(i).speed.z = grid.vel_W.interpolate(particle_save_pic.at(i).pos);
+//        particle_save_pic.at(i).speed.z = grid.vel_W.interpolate(particle_save_pic.at(i).pos);
     }
 
 }
@@ -530,8 +530,13 @@ void FluidSolver::ExtrapolateVelocity(){
                                         sum += grid.vel_U(q[qk][0],q[qk][1],
                                                 q[qk][2]);
                                     }else if(n == 1){
-                                        sum += grid.vel_V(q[qk][0],q[qk][1],
-                                                q[qk][2]);
+                                        if(grid.vel_V(q[qk][0],q[qk][1],
+                                                      q[qk][2]) > -EPSILON)
+                                        {
+                                            int a = 1;
+                                            sum += grid.vel_V(q[qk][0],q[qk][1],
+                                                    q[qk][2]);
+                                        }
                                     }else if(n == 2){
                                         sum += grid.vel_W(q[qk][0],q[qk][1],
                                                 q[qk][2]);
@@ -609,7 +614,9 @@ void FluidSolver::clearGrid(){
 
 void FluidSolver::step(){
     // Step 3 - Store Particle Velocity at current time step to MACGrid
+    std::cout << "kuch text " << std::endl;
     this->storeParticleVelocityToGrid();
+    std::cout << this->grid.vel_V.data.at(31) << std::endl;
     
     // Step 4 - Add Body Forces like Gravity to MACGrid
 //    this->CalculateGravityToCell(delta);
@@ -624,28 +631,34 @@ void FluidSolver::step(){
 //    this->calculateNewGridVelocities();
 //    this->setBoundaryVelocitiesToZero(vec3(5.f));
     this->ExtrapolateVelocity();
-    
+    std::cout << this->grid.vel_V.data.at(31) << std::endl;
+
     // Step  - Calculate new flip & pic velocities for each particle
 //    this->FlipSolve();
     this->PicSolve();
-    
+    std::cout << this->grid.vel_V.data.at(31) << std::endl;
+
     // Step - Lerp(FLIPVelocity, PICVelocity, 0.95)
-    for(int i = 0; i < this->ParticlesContainer.size(); ++i){
-        this->ParticlesContainer.at(i).speed = (1.f - VISCOSITY) * this->particle_save_pic.at(i).speed
-        /*+ VISCOSITY * this->particle_save.at(i).speed*/;
-        this->ParticlesContainer.at(i).pos = this->integratePos(this->ParticlesContainer.at(i).pos,
-                                                                this->ParticlesContainer.at(i).speed, delta, true);
-    }
+//    for(int i = 0; i < this->ParticlesContainer.size(); ++i){
+//        this->ParticlesContainer.at(i).speed = (1.f - VISCOSITY) * this->particle_save_pic.at(i).speed
+//        /*+ VISCOSITY * this->particle_save.at(i).speed*/;
+//        this->ParticlesContainer.at(i).pos = this->integratePos(this->ParticlesContainer.at(i).pos,
+//                                                                this->ParticlesContainer.at(i).speed, delta, true);
+//        if(this->ParticlesContainer.at(i).gridIdx == vec3(1.f)){
+//            std::cout << this->ParticlesContainer.at(i).speed.y << std::endl;
+//        }
+//    }
+
     // Step - Collision Response
-    for(int i = 0; i < this->ParticlesContainer.size(); ++i){
-        if (this->ParticlesContainer.at(i).pos.y < EPSILON){
-            if(this->ParticlesContainer.at(i).speed.y < EPSILON){
-                this->ParticlesContainer.at(i).speed *= (vec3(1.f, -1.f, 1.f));
-            }
-            this->ParticlesContainer.at(i).pos.y = EPSILON ;
-            this->ParticlesContainer.at(i).pos = this->integratePos(this->ParticlesContainer.at(i).pos,
-                                                                    this->ParticlesContainer.at(i).speed, delta, true);
-        }
-    }
+//    for(int i = 0; i < this->ParticlesContainer.size(); ++i){
+//        if (this->ParticlesContainer.at(i).pos.y < EPSILON){
+//            if(this->ParticlesContainer.at(i).speed.y < EPSILON){
+//                this->ParticlesContainer.at(i).speed *= (vec3(1.f, -1.f, 1.f));
+//            }
+//            this->ParticlesContainer.at(i).pos.y = EPSILON ;
+//            this->ParticlesContainer.at(i).pos = this->integratePos(this->ParticlesContainer.at(i).pos,
+//                                                                    this->ParticlesContainer.at(i).speed, delta, true);
+//        }
+//    }
     this->clearGrid();
 }

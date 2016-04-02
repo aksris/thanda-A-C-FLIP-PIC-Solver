@@ -113,10 +113,10 @@ float MACGridData::interpolate(const vec3& pt)
    int j = (int) (pos[1]/CellSize);
    int k = (int) (pos[2]/CellSize);
 
-   float scale = 1.0 / CellSize;
-   float fract_partx = scale * (pos[0] - i*CellSize);
-   float fract_party = scale * (pos[1] - j*CellSize);
-   float fract_partz = scale * (pos[2] - k*CellSize);
+//   float scale = 1.0 / CellSize;
+   float fract_partx = (pos[0] - i*CellSize);
+   float fract_party = (pos[1] - j*CellSize);
+   float fract_partz = (pos[2] - k*CellSize);
 
    float v000 = (*this)(i >= gDimension[0]? gDimension[0] - 1 : i, j >= gDimension[1]? gDimension[1]    -1: j, k >= gDimension[2]? gDimension[2] -1 : k);
    float v010 = (*this)(i >= gDimension[0]? gDimension[0] - 1 : i, j+1 >= gDimension[1]? gDimension[1]  -1: j + 1,k >= gDimension[2]? gDimension[2]-1 : k);
@@ -137,6 +137,9 @@ float MACGridData::interpolate(const vec3& pt)
    float fLerp2 = LERP (lerp3, lerp4, fract_partx);
 
    float ret = LERP(fLerp1, fLerp2, fract_partz);
+   if(i == 1 && j == 1 && k == 1){
+       std::cout << "return value for 1,1,1: " << ret << std::endl;
+   }
    return ret;
 }
 
