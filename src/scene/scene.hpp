@@ -10,7 +10,7 @@
 #include <string>
 #include <GL/glew.h>
 #include <json/json.h>
-
+#include <string.h>
 #include <glm/glm.hpp>
 
 class Scene

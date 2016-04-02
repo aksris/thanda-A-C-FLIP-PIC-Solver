@@ -27,6 +27,7 @@ void MACGrid::initialize(){
     vel_V.MACGridDataInitialize();
     vel_W.MACGridDataInitialize();
     P.MACGridDataInitialize();
+    save_kernel_wt_V.MACGridDataInitialize();
 }
 
 MACGrid& MACGrid::operator =(const MACGrid& val){
@@ -45,6 +46,8 @@ MACGrid& MACGrid::operator =(const MACGrid& val){
 
     P.data = val.P.data;
     P.mData = val.P.mData;
+
+    save_kernel_wt_V = val.save_kernel_wt_V;
     return *this;
 }
 
@@ -112,6 +115,7 @@ void FluidSolver::genParticles(float particle_separation, float boundx, float bo
                 int iter = 0;
                 while(iter < 8){
                     p.pos = vec3(rand(i,i+1), rand(j,j+1), rand(k, k+1));
+                    p.speed = vec3(0.f, -1.f, 0.f);
                     p.gridIdx = vec3(i,j,k);
                     ParticlesContainer.push_back(p);
                     iter++;
@@ -156,9 +160,9 @@ void FluidSolver::FlipSolve(){
     //for every particle, set the change in velocity + current particle velocity
     //interpolate
     for(int i = 0; i < particle_save.size(); i++){
-        particle_save.at(i).speed.x = grid.vel_U.interpolate(particle_save.at(i).pos);
-        particle_save.at(i).speed.y = grid.vel_V.interpolate(particle_save.at(i).pos);
-        particle_save.at(i).speed.z = grid.vel_W.interpolate(particle_save.at(i).pos);
+        particle_save.at(i).speed.x = tmp.vel_U.interpolate(particle_save.at(i).pos);
+        particle_save.at(i).speed.y = tmp.vel_V.interpolate(particle_save.at(i).pos);
+        particle_save.at(i).speed.z = tmp.vel_W.interpolate(particle_save.at(i).pos);
     }
 
 }
@@ -202,14 +206,16 @@ float Sharpen(const float& r2, const float& h) {
 float h(float r){
     if(r >= 0.f && r <= 1.f)
         return 1.f - r;
-    else if(-1.f <= r && r <= 0.f)
+    else if(-1.f <= r && r < 0.f)
         return 1.f + r;
     else
         return 0.f;
 }
 
 float StiffKernel(const vec3& r, const float& cell_width){
-    return h(r.x/cell_width)*h(r.y/cell_width)*h(r.z/cell_width);
+//    return h(r.x/cell_width)*h(r.y/cell_width)*h(r.z/cell_width);
+    float r2 = length2(r);
+    return max(1.f - r2 / (cell_width*cell_width), EPSILON);
 }
 
 void FluidSolver::CalculateGravityToCell(float delta){
@@ -217,8 +223,8 @@ void FluidSolver::CalculateGravityToCell(float delta){
     for (int i = 0; i < 5; i++){
         for (int j = 0; j < 5; j++){
             for (int k = 0; k < 5; k++){
-                speed = glm::vec3(0.f, -9.81f , 0.f) * delta;
-                grid.vel_V.setCell(i,j,k, speed.y);
+                speed = glm::vec3(0.f, -10.f , 0.f) * delta;
+                grid.vel_V.setCellAdd(i,j,k, speed.y);
             }
         }
     }
@@ -236,16 +242,53 @@ void FluidSolver::storeParticleVelocityToGrid(){
         vec3 r = ParticlesContainer.at(i).pos - (index + vec3(0.f, 0.5f, 0.5f));
         grid.vel_U.setCellAdd(x, y, z, ParticlesContainer.at(i).speed.x * StiffKernel(r, h) * 0.125f);
 
+
+        //y direction splatting
         r = ParticlesContainer.at(i).pos - (index + vec3(0.5f, 0.f, 0.5f));
-        grid.vel_V.setCellAdd(x, y, z, ParticlesContainer.at(i).speed.y * StiffKernel(r, h) * 0.125f);
+
+        grid.vel_V.setCellAdd(x, y, z, ParticlesContainer.at(i).speed.y * StiffKernel(r, h));
+        grid.save_kernel_wt_V.setCellAdd(x, y, z, StiffKernel(r, h));
+
+        r = ParticlesContainer.at(i).pos - (vec3(x+1, y, z) + vec3(0.5f, 0.f, 0.5f));
+        grid.vel_V.setCellAdd(x+1, y, z, ParticlesContainer.at(i).speed.y * StiffKernel(r, h));
+        grid.save_kernel_wt_V.setCellAdd(x+1, y, z, StiffKernel(r, h));
+
+        r = ParticlesContainer.at(i).pos - (vec3(x-1, y, z) + vec3(0.5f, 0.f, 0.5f));
+        grid.vel_V.setCellAdd(x-1, y, z, ParticlesContainer.at(i).speed.y * StiffKernel(r, h));
+        grid.save_kernel_wt_V.setCellAdd(x-1, y, z, StiffKernel(r, h));
+
+        r = ParticlesContainer.at(i).pos - (vec3(x, y+1, z) + vec3(0.5f, 0.f, 0.5f));
+        grid.vel_V.setCellAdd(x, y+1, z, ParticlesContainer.at(i).speed.y * StiffKernel(r, h));
+        grid.save_kernel_wt_V.setCellAdd(x, y+1, z, StiffKernel(r, h));
+
+        r = ParticlesContainer.at(i).pos - (vec3(x, y-1, z) + vec3(0.5f, 0.f, 0.5f));
+        grid.vel_V.setCellAdd(x, y-1, z, ParticlesContainer.at(i).speed.y * StiffKernel(r, h));
+        grid.save_kernel_wt_V.setCellAdd(x, y-1, z, StiffKernel(r, h));
+
+        r = ParticlesContainer.at(i).pos - (vec3(x, y, z+1) + vec3(0.5f, 0.f, 0.5f));
+        grid.vel_V.setCellAdd(x, y, z+1, ParticlesContainer.at(i).speed.y * StiffKernel(r, h) );
+        grid.save_kernel_wt_V.setCellAdd(x, y, z+1, StiffKernel(r, h));
+
+        r = ParticlesContainer.at(i).pos - (vec3(x, y, z-1) + vec3(0.5f, 0.f, 0.5f));
+        grid.vel_V.setCellAdd(x, y, z-1, ParticlesContainer.at(i).speed.y * StiffKernel(r, h));
+        grid.save_kernel_wt_V.setCellAdd(x, y, z-1, StiffKernel(r, h));
+
 
         r = ParticlesContainer.at(i).pos - (index + vec3(0.5f, 0.5f, 0.f));
-        grid.vel_W.setCellAdd(x, y, z, ParticlesContainer.at(i).speed.z * StiffKernel(r, h) * 0.125f);
+        grid.vel_W.setCellAdd(x, y, z, ParticlesContainer.at(i).speed.y * StiffKernel(r, h) * 0.125f);
 
     }
-//    Gathering
 
-//    for()
+    int x = grid.P.containerBounds.x;
+    int y = grid.P.containerBounds.y;
+    int z = grid.P.containerBounds.z;
+    for(int i = 0; i < x; ++i){
+        for(int j = 0; j < y + 1; ++j){
+            for(int k = 0; k < z; ++k){
+                grid.vel_V.setCell(i, j, k, grid.vel_V(i,j,k) / max(grid.save_kernel_wt_V(i,j,k), EPSILON));
+            }
+        }
+    }
 
     initializeMarkerGrid();
 }
@@ -430,7 +473,7 @@ void FluidSolver::ProjectPressure(){
     A.setFromTriplets(coefficients.begin(), coefficients.end());
 
     //solve
-    Eigen::ConjugateGradient<Eigen::SparseMatrix<double>> chol;  // performs a Cholesky factorization of A
+    Eigen::ConjugateGradient<Eigen::SparseMatrix<double>, Eigen::Lower|Eigen::Upper> chol;  // performs a Cholesky factorization of A
     chol.compute(A);
     Eigen::VectorXd p = chol.solve(u);
     fillPressureGrid(p, m);
@@ -569,36 +612,39 @@ void FluidSolver::step(){
     this->storeParticleVelocityToGrid();
     
     // Step 4 - Add Body Forces like Gravity to MACGrid
-    this->CalculateGravityToCell(delta);
+//    this->CalculateGravityToCell(delta);
     
     // Step 5 - Store a temporary copy of Grid Velocities for FLIP
     this->storeCurrentGridVelocities();
     
-    //        this->setBoundaryVelocitiesToZero(scene.containerBounds);
+//    this->setBoundaryVelocitiesToZero(vec3(5.f));
     //pressure solve
-    //        this->ProjectPressure();
+//    this->ProjectPressure();
     
-    //        this->calculateNewGridVelocities();
-    //        this->setBoundaryVelocitiesToZero(scene.containerBounds);
-    //        this->ExtrapolateVelocity();
+//    this->calculateNewGridVelocities();
+//    this->setBoundaryVelocitiesToZero(vec3(5.f));
+    this->ExtrapolateVelocity();
     
     // Step  - Calculate new flip & pic velocities for each particle
-    this->FlipSolve();
+//    this->FlipSolve();
     this->PicSolve();
     
     // Step - Lerp(FLIPVelocity, PICVelocity, 0.95)
     for(int i = 0; i < this->ParticlesContainer.size(); ++i){
         this->ParticlesContainer.at(i).speed = (1.f - VISCOSITY) * this->particle_save_pic.at(i).speed
-        + VISCOSITY * this->particle_save.at(i).speed;
+        /*+ VISCOSITY * this->particle_save.at(i).speed*/;
         this->ParticlesContainer.at(i).pos = this->integratePos(this->ParticlesContainer.at(i).pos,
                                                                 this->ParticlesContainer.at(i).speed, delta, true);
     }
     // Step - Collision Response
     for(int i = 0; i < this->ParticlesContainer.size(); ++i){
         if (this->ParticlesContainer.at(i).pos.y < EPSILON){
-            this->ParticlesContainer.at(i).speed *= -(vec3(0.f, 1.f, 0.f));
-            this->ParticlesContainer.at(i).pos += this->ParticlesContainer.at(i).speed
-            * (float)delta ;
+            if(this->ParticlesContainer.at(i).speed.y < EPSILON){
+                this->ParticlesContainer.at(i).speed *= (vec3(1.f, -1.f, 1.f));
+            }
+            this->ParticlesContainer.at(i).pos.y = EPSILON ;
+            this->ParticlesContainer.at(i).pos = this->integratePos(this->ParticlesContainer.at(i).pos,
+                                                                    this->ParticlesContainer.at(i).speed, delta, true);
         }
     }
     this->clearGrid();

@@ -205,13 +205,13 @@ void Viewer::display(){
     
     static GLfloat* g_particule_position_size_data = new GLfloat[fluid.MaxParticles * 4];
     static GLubyte* g_particule_color_data         = new GLubyte[fluid.MaxParticles * 4];
-    glm::mat4 ViewProjectionMatrix
+    glm::mat4 ViewProjectionMatrix;
     
 //    // Step 1 - Particle Seeding
-//    fluid.genParticles(scene.particle_separation, scene.particleBounds.x, scene.particleBounds.y, scene.particleBounds.z);
+    fluid.genParticles(scene.particle_separation, scene.particleBounds.x, scene.particleBounds.y, scene.particleBounds.z);
 //
 //    //Step 2 - construct mac grid
-//    fluid.constructMACGrid(scene.containerBounds);
+    fluid.constructMACGrid(scene.containerBounds);
 
     double lastTime = glfwGetTime();
     do{
@@ -219,10 +219,9 @@ void Viewer::display(){
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         double currentTime = glfwGetTime();
-//        double delta = currentTime - lastTime;
         lastTime = currentTime;
 
-//        fluid.step();
+        fluid.step();
 
         // setup camera
         camera.computeMatricesFromInputs(window);

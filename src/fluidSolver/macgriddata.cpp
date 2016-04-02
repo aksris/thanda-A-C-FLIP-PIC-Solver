@@ -247,14 +247,18 @@ void MACGridDataY::setCell(int &i, int &j, int &k, const float val){
     int x = i;
     int y = k * (gDimension[0]);
     int z = j * (gDimension[0]) * gDimension[2];
-    data[x+y+z] = val;
+
+    if(x+y+z < data.size()-1 && x+y+z >= 0)
+        data.at(x+y+z) = val;
 }
 
-void MACGridDataY::setCellAdd(int &i, int &j, int &k, const float val){
+void MACGridDataY::setCellAdd(const int &i, const int &j, const int &k, const float val){
     int x = i;
     int y = k * (gDimension[0]);
     int z = j * (gDimension[0]) * gDimension[2];
-    data[x+y+z] += val;
+
+    if(x+y+z < data.size()-1 && x+y+z >= 0)
+        data.at(x+y+z) += val;
 }
 
 MACGridDataZ::MACGridDataZ()

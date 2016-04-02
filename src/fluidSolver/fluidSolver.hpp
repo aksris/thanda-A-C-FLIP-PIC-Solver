@@ -26,7 +26,7 @@
 using namespace glm;
 
 enum geomtype {AIR = 0, FLUID = 1, SOLID = 2};
-#define VISCOSITY 0.95f
+#define VISCOSITY 0.f
 #define EPSILON 0.00001f
 
 
@@ -56,6 +56,7 @@ public:
     MACGridDataX vel_U;
     MACGridDataY vel_V;
     MACGridDataZ vel_W;
+    MACGridDataY save_kernel_wt_V;
     MACGridData P;
 protected:
 };
@@ -63,21 +64,6 @@ protected:
 class FluidSolver{
 public:
     FluidSolver();
-
-    std::vector<float> forces; // at the center of grid
-    std::vector<float> vel_u; //u,v,w components of velocity
-    std::vector<float> vel_v;
-    std::vector<float> vel_w;
-
-    std::unordered_map<int, std::vector<Particle*>> hash_grid; //improve here for faster particle to grid access
-    std::vector<float> vel_u_current;
-    std::vector<float> vel_v_current;
-    std::vector<float> vel_w_current;
-
-    std::vector<float> vel_u_change;
-    std::vector<float> vel_v_change;
-    std::vector<float> vel_w_change;
-    std::vector<int> mark;
 
     MACGrid grid;
     MACGrid tmp;
@@ -131,7 +117,7 @@ public:
     void particlesInit();
     void genParticles(float particle_separation, float boundx, float boundy, float boundz);
     
-    float delta = 0.01f;
+    float delta = 0.1f;
 
 
 };
