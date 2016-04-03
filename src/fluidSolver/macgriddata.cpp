@@ -107,40 +107,61 @@ vec3 MACGridData::worldToLocal(const vec3& pt) const
 
 float MACGridData::interpolate(const vec3& pt)
 {
-   vec3 pos = worldToLocal(pt);
+    vec3 pos = worldToLocal(pt);
 
-   int i = (int) (pos[0]/CellSize);
-   int j = (int) (pos[1]/CellSize);
-   int k = (int) (pos[2]/CellSize);
+    int i = (int) (pos[0]/CellSize);
+    int j = (int) (pos[1]/CellSize);
+    int k = (int) (pos[2]/CellSize);
 
-//   float scale = 1.0 / CellSize;
-   float fract_partx = (pos[0] - i*CellSize);
-   float fract_party = (pos[1] - j*CellSize);
-   float fract_partz = (pos[2] - k*CellSize);
+    //   float scale = 1.0 / CellSize;
+    float fract_partx = (pos[0] - i*CellSize);
+    float fract_party = (pos[1] - j*CellSize);
+    float fract_partz = (pos[2] - k*CellSize);
 
-   float v000 = (*this)(i >= gDimension[0]? gDimension[0] - 1 : i, j >= gDimension[1]? gDimension[1]    -1: j, k >= gDimension[2]? gDimension[2] -1 : k);
-   float v010 = (*this)(i >= gDimension[0]? gDimension[0] - 1 : i, j+1 >= gDimension[1]? gDimension[1]  -1: j + 1,k >= gDimension[2]? gDimension[2]-1 : k);
-   float v100 = (*this)(i+1 >= gDimension[0]? gDimension[0] -1 : i+1, j >= gDimension[1]? gDimension[1] -1: j, k >= gDimension[2]? gDimension[2] -1: k);
-   float v110 = (*this)(i+1 >= gDimension[0]? gDimension[0] -1 : i+1,j+1 >= gDimension[1]? gDimension[1]-1: j + 1,k >= gDimension[2]? gDimension[2] -1: k);
-   float v001 = (*this)(i >= gDimension[0]? gDimension[0] -1 : i, j >= gDimension[1]? gDimension[1]     -1: j, k+1 >= gDimension[2] ? gDimension[2] -1: k + 1);
-   float v011 = (*this)(i >= gDimension[0]? gDimension[0] -1 : i,j+1 >= gDimension[1]? gDimension[1]-1: j + 1,k+1 >= gDimension[2] ? gDimension[2] -1: k+1);
-   float v101 = (*this)(i+1 >= gDimension[0]? gDimension[0] -1 : i+1,j >= gDimension[1]? gDimension[1]    -1: j,k+1 >= gDimension[2] ? gDimension[2] -1: k + 1);
-   float v111 = (*this)(i+1 >= gDimension[0]? gDimension[0] -1 : i+1,j+1 >= gDimension[1]? gDimension[1]  -1: j + 1,k+1 >= gDimension[2] ? gDimension[2]-1 : k + 1);
+    std::cout << "[thanda] InterpolateVelocity"<< std::endl;
 
-   float lerp1 = LERP(v000, v010, fract_party);
-   float lerp2 = LERP(v100, v110, fract_party);
+    // questions -
+    // 1: Shouldn't all the neighbors have extrapolated values for correct interpolation - Yes!
+    //    This function is trusting ExtrapolateVelocity to make sure there are no non-existant terms.
+    //    Or are we supposed to check here regardless?
+    
+    // 2: Are boundary cells supposed to be type SOLID? If so why, is cell 0 2 1 not being extrapolated to correctly?
+    
 
-   float lerp3 = LERP(v001, v011, fract_party);
-   float lerp4 = LERP(v101, v111, fract_party);
+    float v000 = (*this)(i >= gDimension[0]? gDimension[0] - 1 : i, j >= gDimension[1]? gDimension[1]    -1: j, k >= gDimension[2]? gDimension[2] -1 : k);
+    float v010 = (*this)(i >= gDimension[0]? gDimension[0] - 1 : i, j+1 >= gDimension[1]? gDimension[1]  -1: j + 1,k >= gDimension[2]? gDimension[2]-1 : k);
+    std::cout << "[thanda] at idx " << i << " "<< j << " "<< k << " : "<< (*this)(i,j,k) << std::endl;
+    std::cout << "[thanda] at idx " << i << " "<< j+1 << " "<< k << " : "<< (*this)(i,j+1,k) << std::endl;
+    float lerp1 = LERP(v000, v010, fract_party);
+    std::cout << "[thanda] lerp1 " << lerp1 << std::endl;    
 
-   float fLerp1 = LERP (lerp1, lerp2, fract_partx);
-   float fLerp2 = LERP (lerp3, lerp4, fract_partx);
+    float v100 = (*this)(i+1 >= gDimension[0]? gDimension[0] -1 : i+1, j >= gDimension[1]? gDimension[1] -1: j, k >= gDimension[2]? gDimension[2] -1: k);
+    float v110 = (*this)(i+1 >= gDimension[0]? gDimension[0] -1 : i+1,j+1 >= gDimension[1]? gDimension[1]-1: j + 1,k >= gDimension[2]? gDimension[2] -1: k);
+    std::cout << "[thanda] at idx " << i+1 << " "<< j << " "<< k << " : "<< (*this)(i+1,j,k) << std::endl;
+    std::cout << "[thanda] at idx " << i+1 << " "<< j+1 << " "<< k << " : "<< (*this)(i+1,j+1,k) << std::endl;
+    float lerp2 = LERP(v100, v110, fract_party);
+    std::cout << "[thanda] lerp2 " << lerp2 << std::endl;
+    
+    float v001 = (*this)(i >= gDimension[0]? gDimension[0] -1 : i, j >= gDimension[1]? gDimension[1]     -1: j, k+1 >= gDimension[2] ? gDimension[2] -1: k + 1);
+    float v011 = (*this)(i >= gDimension[0]? gDimension[0] -1 : i,j+1 >= gDimension[1]? gDimension[1]-1: j + 1,k+1 >= gDimension[2] ? gDimension[2] -1: k+1);
+    std::cout << "[thanda] at idx " << i << " "<< j << " "<< k+1<< " : "<< (*this)(i,j,k+1) << std::endl;
+    std::cout << "[thanda] at idx " << i << " "<< j+1 << " "<< k+1 << " : "<< (*this)(i,j+1,k+1) << std::endl;
+    float lerp3 = LERP(v001, v011, fract_party);
+    std::cout << "[thanda] lerp3 " << lerp3 << std::endl;
+    
+    float v101 = (*this)(i+1 >= gDimension[0]? gDimension[0] -1 : i+1,j >= gDimension[1]? gDimension[1]    -1: j,k+1 >= gDimension[2] ? gDimension[2] -1: k + 1);
+    float v111 = (*this)(i+1 >= gDimension[0]? gDimension[0] -1 : i+1,j+1 >= gDimension[1]? gDimension[1]  -1: j + 1,k+1 >= gDimension[2] ? gDimension[2]-1 : k + 1);
+    std::cout << "[thanda] at idx " << i+1 << " "<< j << " "<< k+1 << " : "<< (*this)(i+1,j,k+1) << std::endl;
+    std::cout << "[thanda] at idx " << i+1 << " "<< j+1 << " "<< k+1 << " : "<< (*this)(i+1,j+1,k+1) << std::endl;
+    float lerp4 = LERP(v101, v111, fract_party);
+    std::cout << "[thanda] lerp4 " << lerp4 << std::endl;
 
-   float ret = LERP(fLerp1, fLerp2, fract_partz);
-   if(i == 1 && j == 1 && k == 1){
-       std::cout << "return value for 1,1,1: " << ret << std::endl;
-   }
-   return ret;
+    float lerp5 = LERP (lerp1, lerp2, fract_partx);
+    float lerp6 = LERP (lerp3, lerp4, fract_partx);
+
+    float ret = LERP(lerp5, lerp6, fract_partz);
+
+    return ret;
 }
 
 MACGridDataX::MACGridDataX()

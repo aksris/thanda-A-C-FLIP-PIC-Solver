@@ -507,6 +507,7 @@ void FluidSolver::ExtrapolateVelocity(){
     int x = grid.P.containerBounds.x;
     int y = grid.P.containerBounds.y;
     int z = grid.P.containerBounds.z;
+
     //neighborhood of 0, based on distance
     for(int i = 0; i < x + 1; ++i){
         for(int j = 0; j < y + 1; ++j){
@@ -524,19 +525,18 @@ void FluidSolver::ExtrapolateVelocity(){
                         for(unsigned int qk = 0; qk < 6; ++qk){
                             if(q[qk][0] >= 0 && q[qk][0]< x +(n==0) && q[qk][1] >= 0 &&
                                     q[qk][1] < y+(n==1) && q[qk][2] >= 0 && q[qk][2] < z+(n==2) ) {
+                                
                                 if(grid.P.getCellMark(q[qk][0], q[qk][1], q[qk][2]) == FLUID){
+//                                    std::cout << "[thanda] ExtrapolateVelocity for "<< i << " "<< j << " "<< k << " from " << q[qk][0] << " "<< q[qk][1] << " "<< q[qk][2] << " : " << this->grid.vel_V(q[qk][0], q[qk][1], q[qk][2]) << std::endl;
+
                                     wsum ++;
+                                    
                                     if(n == 0){
                                         sum += grid.vel_U(q[qk][0],q[qk][1],
                                                 q[qk][2]);
                                     }else if(n == 1){
-                                        if(grid.vel_V(q[qk][0],q[qk][1],
-                                                      q[qk][2]) > -EPSILON)
-                                        {
-                                            int a = 1;
-                                            sum += grid.vel_V(q[qk][0],q[qk][1],
-                                                    q[qk][2]);
-                                        }
+                                        sum += grid.vel_V(q[qk][0],q[qk][1],
+                                                q[qk][2]);
                                     }else if(n == 2){
                                         sum += grid.vel_W(q[qk][0],q[qk][1],
                                                 q[qk][2]);
@@ -548,6 +548,7 @@ void FluidSolver::ExtrapolateVelocity(){
                             if(n==0){
                                 grid.vel_U.setCell(i,j,k,sum/wsum);
                             }else if(n==1){
+//                                std::cout << "[thanda] ExtrapolateVelocity for "<< i << " "<< j << " "<< k << " : "<< sum/wsum<<std::endl;
                                 grid.vel_V.setCell(i,j,k,sum/wsum);
                             }else if(n==2){
                                 grid.vel_W.setCell(i,j,k,sum/wsum);
@@ -614,9 +615,18 @@ void FluidSolver::clearGrid(){
 
 void FluidSolver::step(){
     // Step 3 - Store Particle Velocity at current time step to MACGrid
-    std::cout << "kuch text " << std::endl;
+    int i = 0;
+    int j = 1;
+    int k = 1;
+    
     this->storeParticleVelocityToGrid();
-    std::cout << this->grid.vel_V.data.at(31) << std::endl;
+    std::cout << "[thanda] storeParticleVelocityToGrid Done" << std::endl;
+    std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i, j, k) << " at idx " << i << " "<< j << " "<< k << " : "<< this->grid.vel_V(i,j,k) << std::endl;
+    std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i+1, j, k) << " at idx " << i+1 << " "<< j << " "<< k << " : "<< this->grid.vel_V(i+1,j,k) << std::endl;
+    std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i, j+1, k) << " at idx " << i << " "<< j+1 << " "<< k << " : "<< this->grid.vel_V(i,j+1,k) << std::endl;
+    std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i+1, j+1, k) << " at idx " << i+1 << " "<< j+1 << " "<< k << " : "<< this->grid.vel_V(i+1,j+1,k) << std::endl; // is this valid
+    
+    
     
     // Step 4 - Add Body Forces like Gravity to MACGrid
 //    this->CalculateGravityToCell(delta);
@@ -631,12 +641,15 @@ void FluidSolver::step(){
 //    this->calculateNewGridVelocities();
 //    this->setBoundaryVelocitiesToZero(vec3(5.f));
     this->ExtrapolateVelocity();
-    std::cout << this->grid.vel_V.data.at(31) << std::endl;
+    std::cout << "[thanda] ExtrapolateVelocity {AIR = 0, FLUID = 1, SOLID = 2} "<< std::endl;
+    std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i, j, k) << " at idx " << i << " "<< j << " "<< k << " : "<< this->grid.vel_V(i,j,k) << std::endl;
+    std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i+1, j, k) << " at idx " << i+1 << " "<< j << " "<< k << " : "<< this->grid.vel_V(i+1,j,k) << std::endl;
+    std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i, j+1, k) << " at idx " << i << " "<< j+1 << " "<< k << " : "<< this->grid.vel_V(i,j+1,k) << std::endl;
+    std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i+1, j+1, k) << " at idx " << i+1 << " "<< j+1 << " "<< k << " : "<< this->grid.vel_V(i+1,j+1,k) << std::endl; // is this valid
 
     // Step  - Calculate new flip & pic velocities for each particle
 //    this->FlipSolve();
     this->PicSolve();
-    std::cout << this->grid.vel_V.data.at(31) << std::endl;
 
     // Step - Lerp(FLIPVelocity, PICVelocity, 0.95)
 //    for(int i = 0; i < this->ParticlesContainer.size(); ++i){
