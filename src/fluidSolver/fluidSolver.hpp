@@ -35,7 +35,7 @@ class Particle{
 
 public:
     Particle();
-    vec3 gridIdx;
+    ivec3 gridIdx;
     glm::vec3 pos, speed;
     unsigned char r,g,b,a; // Color
     float size, angle, mass, density;
@@ -70,7 +70,7 @@ public:
 
     int i_size;
     int j_size;
-
+    float delta;
     int num_cells;
     vec3 containerBounds;
 
@@ -117,7 +117,6 @@ public:
     void particlesInit();
     void genParticles(float particle_separation, float boundx, float boundy, float boundz);
     
-    float delta = 0.1f;
 
 
 };

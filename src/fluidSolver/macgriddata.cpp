@@ -1,6 +1,5 @@
 #include "macgriddata.h"
 #include <iostream>
-#define DEBUG
 
 float CellSize = 1.f;
 int gDimension[3] = {5, 5, 5};
@@ -109,6 +108,9 @@ vec3 MACGridData::worldToLocal(const vec3& pt) const
 
 float MACGridData::interpolate(const vec3& pt)
 {
+    
+//#define DEBUG
+
     vec3 pos = worldToLocal(pt);
 
     int i = (int) (pos[0]/CellSize);

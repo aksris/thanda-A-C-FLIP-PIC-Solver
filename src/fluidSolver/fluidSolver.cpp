@@ -1,7 +1,6 @@
 //
 //  fluidSolver.cpp
 //  Thanda
-#define DEBUG
 
 #include "fluidSolver.hpp"
 Particle::Particle(){
@@ -54,6 +53,7 @@ MACGrid& MACGrid::operator =(const MACGrid& val){
 FluidSolver::FluidSolver(){
     LastUsedParticle = 0;
     MaxParticles = 200000;
+    delta = 0.5f;
 }
 
 int FluidSolver::findUnusedParticles(){
@@ -113,8 +113,9 @@ void FluidSolver::genParticles(float particle_separation, float boundx, float bo
         for(int j = 1; j < (int)boundy; j++){
             for(int k = 1; k < (int)boundz; k++){
                 int iter = 0;
-                while(iter < 8){
-                    p.pos = vec3(rand(i,i+1), rand(j,j+1), rand(k, k+1));
+                while(iter < 1){
+                    p.pos = vec3(1.8,1.8,1.6);
+//                    p.pos = vec3(rand(i,i+1), rand(j,j+1), rand(k, k+1));
                     p.speed = vec3(0.f, -8.f, 0.f);
                     p.gridIdx = vec3(i,j,k);
                     ParticlesContainer.push_back(p);
@@ -242,10 +243,10 @@ void FluidSolver::storeParticleVelocityToGrid(){
         grid.P.setCellMark(x, y, z, FLUID, true);
 
         //X direction
-        grid.vel_U.worldToLocal(index);
-        r = ParticlesContainer.at(i).pos - (index);
-        x = index.x, y = index.y, z = index.z;
-        grid.vel_U.setCellAdd(x, y, z, ParticlesContainer.at(i).speed.x * weight * 0.125f);
+//        grid.vel_U.worldToLocal(index);
+//        r = ParticlesContainer.at(i).pos - (index);
+//        x = index.x, y = index.y, z = index.z;
+//        grid.vel_U.setCellAdd(x, y, z, ParticlesContainer.at(i).speed.x * weight * 0.125f);
 
 
         //y direction splatting
@@ -294,10 +295,10 @@ void FluidSolver::storeParticleVelocityToGrid(){
         grid.save_kernel_wt_V.setCellAdd(x+1, y+1, z+1, weight);
 
         //z direction
-        grid.vel_W.worldToLocal(index);
-        r = ParticlesContainer.at(i).pos - (index);
-        x = index.x, y = index.y, z = index.z;
-        grid.vel_W.setCellAdd(x, y, z, ParticlesContainer.at(i).speed.y * weight * 0.125f);
+//        grid.vel_W.worldToLocal(index);
+//        r = ParticlesContainer.at(i).pos - (index);
+//        x = index.x, y = index.y, z = index.z;
+//        grid.vel_W.setCellAdd(x, y, z, ParticlesContainer.at(i).speed.y * weight * 0.125f);
 
     }
 
@@ -730,6 +731,7 @@ void FluidSolver::storeCurrentGridVelocities(){
 }
 
 void FluidSolver::clearGrid(){
+    std::fill(grid.save_kernel_wt_V.data.begin(), grid.save_kernel_wt_V.data.end(), 0.f);
     std::fill(grid.vel_U.data.begin(), grid.vel_U.data.end(), 0.f);
     std::fill(grid.vel_V.data.begin(), grid.vel_V.data.end(), 0.f);
     std::fill(grid.vel_W.data.begin(), grid.vel_W.data.end(), 0.f);
@@ -738,14 +740,17 @@ void FluidSolver::clearGrid(){
 }
 
 void FluidSolver::step(){
+
+#define DEBUG
+    
     // Step 3 - Store Particle Velocity at current time step to MACGrid
-    int i = 0;
-    int j = 1;
-    int k = 0;
+    int i = this->ParticlesContainer.at(0).gridIdx[0];
+    int j = this->ParticlesContainer.at(0).gridIdx[1];
+    int k = this->ParticlesContainer.at(0).gridIdx[2];
     
     this->storeParticleVelocityToGrid();
 #ifdef DEBUG
-        std::cout << "[thanda] storeParticleVelocityToGrid Done" << std::endl;
+        std::cout << "[thanda] storeParticleVelocityToGrid Iteration" << std::endl;
     std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i, j, k) << " at idx " << i << " "<< j << " "<< k << " : "<< this->grid.vel_V(i,j,k) << std::endl;
     std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i, j+1, k) << " at idx " << i << " "<< j+1 << " "<< k << " : "<< this->grid.vel_V(i,j+1,k) << std::endl;
     std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i+1, j, k) << " at idx " << i+1 << " "<< j << " "<< k << " : "<< this->grid.vel_V(i+1,j,k) << std::endl;
@@ -773,16 +778,16 @@ void FluidSolver::step(){
 //    this->setBoundaryVelocitiesToZero(vec3(5.f));
     this->ExtrapolateVelocity();
 #ifdef DEBUG
-    std::cout << "[thanda] ExtrapolateVelocity {AIR = 0, FLUID = 1, SOLID = 2} "<< std::endl;
-    std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i, j, k) << " at idx " << i << " "<< j << " "<< k << " : "<< this->grid.vel_V(i,j,k) << std::endl;
-    std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i, j+1, k) << " at idx " << i << " "<< j+1 << " "<< k << " : "<< this->grid.vel_V(i,j+1,k) << std::endl;
-    std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i+1, j, k) << " at idx " << i+1 << " "<< j << " "<< k << " : "<< this->grid.vel_V(i+1,j,k) << std::endl;
-    std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i+1, j+1, k) << " at idx " << i+1 << " "<< j+1 << " "<< k << " : "<< this->grid.vel_V(i+1,j+1,k) << std::endl; // is this valid
-
-    std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i, j, k+1) << " at idx " << i << " "<< j << " "<< k+1 << " : "<< this->grid.vel_V(i,j,k+1) << std::endl;
-    std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i, j+1, k+1) << " at idx " << i << " "<< j+1 << " "<< k+1 << " : "<< this->grid.vel_V(i,j+1,k+1) << std::endl;
-    std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i+1, j, k+1) << " at idx " << i+1 << " "<< j << " "<< k+1 << " : "<< this->grid.vel_V(i+1,j,k+1) << std::endl;
-    std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i+1, j+1, k+1) << " at idx " << i+1 << " "<< j+1 << " "<< k+1 << " : "<< this->grid.vel_V(i+1,j+1,k+1) << std::endl; // is this valid
+//    std::cout << "[thanda] ExtrapolateVelocity {AIR = 0, FLUID = 1, SOLID = 2} "<< std::endl;
+//    std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i, j, k) << " at idx " << i << " "<< j << " "<< k << " : "<< this->grid.vel_V(i,j,k) << std::endl;
+//    std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i, j+1, k) << " at idx " << i << " "<< j+1 << " "<< k << " : "<< this->grid.vel_V(i,j+1,k) << std::endl;
+//    std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i+1, j, k) << " at idx " << i+1 << " "<< j << " "<< k << " : "<< this->grid.vel_V(i+1,j,k) << std::endl;
+//    std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i+1, j+1, k) << " at idx " << i+1 << " "<< j+1 << " "<< k << " : "<< this->grid.vel_V(i+1,j+1,k) << std::endl; // is this valid
+//
+//    std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i, j, k+1) << " at idx " << i << " "<< j << " "<< k+1 << " : "<< this->grid.vel_V(i,j,k+1) << std::endl;
+//    std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i, j+1, k+1) << " at idx " << i << " "<< j+1 << " "<< k+1 << " : "<< this->grid.vel_V(i,j+1,k+1) << std::endl;
+//    std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i+1, j, k+1) << " at idx " << i+1 << " "<< j << " "<< k+1 << " : "<< this->grid.vel_V(i+1,j,k+1) << std::endl;
+//    std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i+1, j+1, k+1) << " at idx " << i+1 << " "<< j+1 << " "<< k+1 << " : "<< this->grid.vel_V(i+1,j+1,k+1) << std::endl; // is this valid
 
 #endif
 
@@ -798,18 +803,18 @@ void FluidSolver::step(){
                                                                 this->ParticlesContainer.at(i).speed, delta, true);
     }
 
-//    std::cout << "speed " << this->ParticlesContainer.at(0).speed.y << ", pos: " << this->ParticlesContainer.at(0).pos.y << std::endl;
 
-    // Step - Collision Response
-//    for(int i = 0; i < this->ParticlesContainer.size(); ++i){
-//        if (this->ParticlesContainer.at(i).pos.y < EPSILON){
-//            if(this->ParticlesContainer.at(i).speed.y < EPSILON){
-//                this->ParticlesContainer.at(i).speed *= (vec3(1.f, -1.f, 1.f));
-//            }
-//            this->ParticlesContainer.at(i).pos.y = EPSILON ;
-//            this->ParticlesContainer.at(i).pos = this->integratePos(this->ParticlesContainer.at(i).pos,
-//                                                                    this->ParticlesContainer.at(i).speed, delta, true);
-//        }
-//    }
+//     Step - Collision Response
+    for(int i = 0; i < this->ParticlesContainer.size(); ++i){
+        if (this->ParticlesContainer.at(i).pos.y < EPSILON){
+            if(this->ParticlesContainer.at(i).speed.y < EPSILON){
+                this->ParticlesContainer.at(i).speed *= 0.01f*(vec3(1.f, -1.f, 1.f));
+            }
+            this->ParticlesContainer.at(i).pos.y = EPSILON ;
+            this->ParticlesContainer.at(i).pos = this->integratePos(this->ParticlesContainer.at(i).pos,
+                                                                    this->ParticlesContainer.at(i).speed, delta, true);
+            this->ParticlesContainer.at(i).gridIdx = glm::ivec3(this->ParticlesContainer.at(i).pos);
+        }
+    }
     this->clearGrid();
 }
