@@ -43,6 +43,7 @@ void MACGridData::MACGridDataInitialize(){
     data.resize(gDimension[0]*gDimension[1]*gDimension[2]);
     mData.resize(gDimension[0]*gDimension[1]*gDimension[2]);
     std::fill(data.begin(), data.end(), 0.f);
+    std::fill(mData.begin(), mData.end(), 0.f);
 }
 
 float& MACGridData::operator ()(int i, int j, int k){

@@ -232,56 +232,63 @@ void FluidSolver::CalculateGravityToCell(float delta){
 
 void FluidSolver::storeParticleVelocityToGrid(){
     //for all the grid indices, calculate vel_u, vel_v, vel_w
+    vec3 index, r; int x,y,z;
     float h = 1.f;
     for(int i = 0; i < ParticlesContainer.size(); ++i){
-        vec3 index = ParticlesContainer.at(i).gridIdx;
-        int x = index.x, y = index.y, z = index.z;
+        index = ParticlesContainer.at(i).gridIdx;
+        x = index.x, y = index.y, z = index.z;
 
         grid.P.setCellMark(x, y, z, FLUID, true);
 
-        vec3 r = ParticlesContainer.at(i).pos - (index + vec3(0.f, 0.5f, 0.5f));
+        //X direction
+        grid.vel_U.worldToLocal(index);
+        r = ParticlesContainer.at(i).pos - (index);
+        x = index.x, y = index.y, z = index.z;
         grid.vel_U.setCellAdd(x, y, z, ParticlesContainer.at(i).speed.x * StiffKernel(r, h) * 0.125f);
 
 
         //y direction splatting
-        r = ParticlesContainer.at(i).pos - (index + vec3(0.5f, 0.f, 0.5f));
-
+        grid.vel_V.worldToLocal(index);
+        r = ParticlesContainer.at(i).pos - (index);
+        x = index.x, y = index.y, z = index.z;
         grid.vel_V.setCellAdd(x, y, z, ParticlesContainer.at(i).speed.y * StiffKernel(r, h));
         grid.save_kernel_wt_V.setCellAdd(x, y, z, StiffKernel(r, h));
 
-        r = ParticlesContainer.at(i).pos - (vec3(x+1, y, z) + vec3(0.5f, 0.f, 0.5f));
+        r = ParticlesContainer.at(i).pos - (vec3(x+1, y, z));
         grid.vel_V.setCellAdd(x+1, y, z, ParticlesContainer.at(i).speed.y * StiffKernel(r, h));
         grid.save_kernel_wt_V.setCellAdd(x+1, y, z, StiffKernel(r, h));
 
-        r = ParticlesContainer.at(i).pos - (vec3(x-1, y, z) + vec3(0.5f, 0.f, 0.5f));
+        r = ParticlesContainer.at(i).pos - (vec3(x-1, y, z));
         grid.vel_V.setCellAdd(x-1, y, z, ParticlesContainer.at(i).speed.y * StiffKernel(r, h));
         grid.save_kernel_wt_V.setCellAdd(x-1, y, z, StiffKernel(r, h));
 
-        r = ParticlesContainer.at(i).pos - (vec3(x, y+1, z) + vec3(0.5f, 0.f, 0.5f));
+        r = ParticlesContainer.at(i).pos - (vec3(x, y+1, z));
         grid.vel_V.setCellAdd(x, y+1, z, ParticlesContainer.at(i).speed.y * StiffKernel(r, h));
         grid.save_kernel_wt_V.setCellAdd(x, y+1, z, StiffKernel(r, h));
 
-        r = ParticlesContainer.at(i).pos - (vec3(x, y-1, z) + vec3(0.5f, 0.f, 0.5f));
+        r = ParticlesContainer.at(i).pos - (vec3(x, y-1, z));
         grid.vel_V.setCellAdd(x, y-1, z, ParticlesContainer.at(i).speed.y * StiffKernel(r, h));
         grid.save_kernel_wt_V.setCellAdd(x, y-1, z, StiffKernel(r, h));
 
-        r = ParticlesContainer.at(i).pos - (vec3(x, y, z+1) + vec3(0.5f, 0.f, 0.5f));
+        r = ParticlesContainer.at(i).pos - (vec3(x, y, z+1));
         grid.vel_V.setCellAdd(x, y, z+1, ParticlesContainer.at(i).speed.y * StiffKernel(r, h) );
         grid.save_kernel_wt_V.setCellAdd(x, y, z+1, StiffKernel(r, h));
 
-        r = ParticlesContainer.at(i).pos - (vec3(x, y, z-1) + vec3(0.5f, 0.f, 0.5f));
+        r = ParticlesContainer.at(i).pos - (vec3(x, y, z-1));
         grid.vel_V.setCellAdd(x, y, z-1, ParticlesContainer.at(i).speed.y * StiffKernel(r, h));
         grid.save_kernel_wt_V.setCellAdd(x, y, z-1, StiffKernel(r, h));
 
-
-        r = ParticlesContainer.at(i).pos - (index + vec3(0.5f, 0.5f, 0.f));
+        //z direction
+        grid.vel_W.worldToLocal(index);
+        r = ParticlesContainer.at(i).pos - (index);
+        x = index.x, y = index.y, z = index.z;
         grid.vel_W.setCellAdd(x, y, z, ParticlesContainer.at(i).speed.y * StiffKernel(r, h) * 0.125f);
 
     }
 
-    int x = grid.P.containerBounds.x;
-    int y = grid.P.containerBounds.y;
-    int z = grid.P.containerBounds.z;
+    x = grid.P.containerBounds.x;
+    y = grid.P.containerBounds.y;
+    z = grid.P.containerBounds.z;
     for(int i = 0; i < x; ++i){
         for(int j = 0; j < y + 1; ++j){
             for(int k = 0; k < z; ++k){
@@ -508,55 +515,160 @@ void FluidSolver::ExtrapolateVelocity(){
     int y = grid.P.containerBounds.y;
     int z = grid.P.containerBounds.z;
 
+    MACGridData extrapolate_grid_U;
+    MACGridData extrapolate_grid_V;
+    MACGridData extrapolate_grid_W;
+    extrapolate_grid_U.MACGridDataInitialize();
+    extrapolate_grid_V.MACGridDataInitialize();
+    extrapolate_grid_W.MACGridDataInitialize();
+
+    //making three grid structures for all axes, so that we store the (fluid or near fluid) and (solid/air or near solid/(solid or air)) mark
+    //this is to extrapolate in to the right cells so that tri lerp does not lerp with an empty cell
+
+    //setting a temporary marker grid to get extrapolated velocities
+
+    //x direction
+    for(int i = 0; i < x+1; ++i){
+        for(int j = 0; j < y; ++j){
+            for(int k = 0; k < z; ++k){
+                //marking fluid or near fluid cells as FLUID
+                if((i < x && grid.P.getCellMark(i,j,k) == FLUID) || (i > 0 && grid.P.getCellMark(i-1,j,k) == FLUID)){
+                    extrapolate_grid_U.setCellMark(i,j,k, FLUID, true);
+                }
+                //marking solid for extrapolation
+                else if((i < x && (grid.P.getCellMark(i,j,k) == SOLID)) &&
+                        (i > 0 && (grid.P.getCellMark(i-1,j,k) == SOLID )) //check if me solid and near solid
+                        || (i < x && (grid.P.getCellMark(i,j,k) == AIR)) &&
+                        (i > 0 && (grid.P.getCellMark(i-1,j,k) == SOLID || grid.P.getCellMark(i-1,j,k) == AIR))) //me air, and near (solid or air)
+                {
+                    extrapolate_grid_U.setCellMark(i,j,k,SOLID, true);
+                }
+            }
+        }
+    }
+    //y direction
+    for(int i = 0; i < x; ++i){
+        for(int j = 0; j < y+1; ++j){
+            for(int k = 0; k < z; ++k){
+                //marking fluid or near fluid cells as FLUID
+                if((j < y && grid.P.getCellMark(i,j,k) == FLUID) || (j > 0 && grid.P.getCellMark(i,j-1,k) == FLUID)){
+                    extrapolate_grid_V.setCellMark(i,j,k, FLUID, true);
+                }
+                //marking solid for extrapolation
+                else if((j < y && (grid.P.getCellMark(i,j,k) == SOLID)) &&
+                        (j > 0 && (grid.P.getCellMark(i,j-1,k) == SOLID )) //check if me solid and near solid
+                        || (j < y && (grid.P.getCellMark(i,j,k) == AIR)) &&
+                        (j > 0 && (grid.P.getCellMark(i,j-1,k) == SOLID || grid.P.getCellMark(i,j-1,k) == AIR))) //me air, and near (solid or air)
+                {
+                    extrapolate_grid_V.setCellMark(i,j,k,SOLID, true);
+                }
+            }
+        }
+    }
+    //z direction
+    for(int i = 0; i < x; ++i){
+        for(int j = 0; j < y; ++j){
+            for(int k = 0; k < z+1; ++k){
+                //marking fluid or near fluid cells as FLUID
+                if((k < z && grid.P.getCellMark(i,j,k) == FLUID) || (k > 0 && grid.P.getCellMark(i,j,k-1) == FLUID)){
+                    extrapolate_grid_W.setCellMark(i,j,k, FLUID, true);
+                }
+                //marking solid for extrapolation
+                else if((k < z && (grid.P.getCellMark(i,j,k) == SOLID)) &&
+                        (k > 0 && (grid.P.getCellMark(i,j,k-1) == SOLID )) //check if me solid and near solid
+                        || (k < z && (grid.P.getCellMark(i,j,k) == AIR)) &&
+                        (k > 0 && (grid.P.getCellMark(i,j,k-1) == SOLID || grid.P.getCellMark(i,j,k-1) == AIR))) //me air, and near (solid or air)
+                {
+                    extrapolate_grid_W.setCellMark(i,j,k,SOLID, true);
+                }
+            }
+        }
+    }
+
     //neighborhood of 0, based on distance
     for(int i = 0; i < x + 1; ++i){
         for(int j = 0; j < y + 1; ++j){
             for(int k = 0; k < z + 1; ++k){
-                for(unsigned int n = 0; n < 3; ++n){
-                    if(n!=0 && i>x-1){ continue; };
-                    if(n!=1 && j>y-1){ continue; };
-                    if(n!=2 && k>z-1){ continue; };
-                    if(grid.P.getCellMark(i, j, k) == SOLID || grid.P.getCellMark(i, j, k) == AIR ){
-                        unsigned int wsum = 0;
-                        float sum = 0.0f;
-                        glm::vec3 q[6] = { glm::vec3(i-1,j,k), glm::vec3(i+1,j,k),
-                                           glm::vec3(i,j-1,k), glm::vec3(i,j+1,k),
-                                           glm::vec3(i,j,k-1), glm::vec3(i,j,k+1) };
-                        for(unsigned int qk = 0; qk < 6; ++qk){
-                            if(q[qk][0] >= 0 && q[qk][0]< x +(n==0) && q[qk][1] >= 0 &&
-                                    q[qk][1] < y+(n==1) && q[qk][2] >= 0 && q[qk][2] < z+(n==2) ) {
-                                
-                                if(grid.P.getCellMark(q[qk][0], q[qk][1], q[qk][2]) == FLUID){
-//                                    std::cout << "[thanda] ExtrapolateVelocity for "<< i << " "<< j << " "<< k << " from " << q[qk][0] << " "<< q[qk][1] << " "<< q[qk][2] << " : " << this->grid.vel_V(q[qk][0], q[qk][1], q[qk][2]) << std::endl;
+                //x faces
+                if((j < y && k < z) && extrapolate_grid_U.getCellMark(i, j, k) == SOLID){
+                    unsigned int wsum = 0;
+                    float sum = 0.0f;
+                    glm::vec3 q[6] = { glm::vec3(i-1,j,k), glm::vec3(i+1,j,k),
+                                       glm::vec3(i,j-1,k), glm::vec3(i,j+1,k),
+                                       glm::vec3(i,j,k-1), glm::vec3(i,j,k+1) };
+                    for(unsigned int qk = 0; qk < 6; ++qk){
+                        if(q[qk][0] >= 0 && q[qk][0]< x + 1 && q[qk][1] >= 0 &&
+                                q[qk][1] < y && q[qk][2] >= 0 && q[qk][2] < z ) {
 
-                                    wsum ++;
-                                    
-                                    if(n == 0){
-                                        sum += grid.vel_U(q[qk][0],q[qk][1],
-                                                q[qk][2]);
-                                    }else if(n == 1){
-                                        sum += grid.vel_V(q[qk][0],q[qk][1],
-                                                q[qk][2]);
-                                    }else if(n == 2){
-                                        sum += grid.vel_W(q[qk][0],q[qk][1],
-                                                q[qk][2]);
-                                    }
-                                }
-                            }
-                        }
-                        if(wsum){
-                            if(n==0){
-                                grid.vel_U.setCell(i,j,k,sum/wsum);
-                            }else if(n==1){
-//                                std::cout << "[thanda] ExtrapolateVelocity for "<< i << " "<< j << " "<< k << " : "<< sum/wsum<<std::endl;
-                                grid.vel_V.setCell(i,j,k,sum/wsum);
-                            }else if(n==2){
-                                grid.vel_W.setCell(i,j,k,sum/wsum);
+                            if(extrapolate_grid_U.getCellMark(q[qk][0], q[qk][1], q[qk][2]) == FLUID){
+                                //std::cout << "[thanda] ExtrapolateVelocity for "<< i << " "<< j << " "<< k << " from " << q[qk][0] << " "<< q[qk][1] << " "<< q[qk][2] << " : " << this->grid.vel_V(q[qk][0], q[qk][1], q[qk][2]) << std::endl;
+
+                                wsum ++;
+                                sum += grid.vel_U(q[qk][0],q[qk][1],
+                                        q[qk][2]);
                             }
                         }
                     }
+                    if(wsum){
+                        grid.vel_U.setCell(i,j,k,sum/wsum);
+                    }
+                    //std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i, j+1, k) << " at idx " << i << " "<< j+1 << " "<< k << " : "<< this->grid.vel_V(i,j+1,k) << std::endl;
+                }
+                //y faces
+                if((i < x && k < z) && extrapolate_grid_V.getCellMark(i, j, k) == SOLID){
+                    unsigned int wsum = 0;
+                    float sum = 0.0f;
+                    glm::vec3 q[6] = { glm::vec3(i-1,j,k), glm::vec3(i+1,j,k),
+                                       glm::vec3(i,j-1,k), glm::vec3(i,j+1,k),
+                                       glm::vec3(i,j,k-1), glm::vec3(i,j,k+1) };
+                    for(unsigned int qk = 0; qk < 6; ++qk){
+                        if(q[qk][0] >= 0 && q[qk][0]< x && q[qk][1] >= 0 &&
+                                q[qk][1] < y+1 && q[qk][2] >= 0 && q[qk][2] < z ) {
+
+                            if(extrapolate_grid_V.getCellMark(q[qk][0], q[qk][1], q[qk][2]) == FLUID){
+                                //std::cout << "[thanda] ExtrapolateVelocity for "<< i << " "<< j << " "<< k << " from " << q[qk][0] << " "<< q[qk][1] << " "<< q[qk][2] << " : " << this->grid.vel_V(q[qk][0], q[qk][1], q[qk][2]) << std::endl;
+
+                                wsum ++;
+
+                                sum += grid.vel_V(q[qk][0],q[qk][1],
+                                        q[qk][2]);
+                            }
+                        }
+                    }
+                    if(wsum){
+                        //std::cout << "[thanda] ExtrapolateVelocity for "<< i << " "<< j << " "<< k << " : "<< sum/wsum<<std::endl;
+                        grid.vel_V.setCell(i,j,k,sum/wsum);
+                    }
+                    //std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i, j+1, k) << " at idx " << i << " "<< j+1 << " "<< k << " : "<< this->grid.vel_V(i,j+1,k) << std::endl;
+                }
+                //z faces
+                if((j < y && i < x) && extrapolate_grid_W.getCellMark(i, j, k) == SOLID){
+                    unsigned int wsum = 0;
+                    float sum = 0.0f;
+                    glm::vec3 q[6] = { glm::vec3(i-1,j,k), glm::vec3(i+1,j,k),
+                                       glm::vec3(i,j-1,k), glm::vec3(i,j+1,k),
+                                       glm::vec3(i,j,k-1), glm::vec3(i,j,k+1) };
+                    for(unsigned int qk = 0; qk < 6; ++qk){
+                        if(q[qk][0] >= 0 && q[qk][0]< x && q[qk][1] >= 0 &&
+                                q[qk][1] < y && q[qk][2] >= 0 && q[qk][2] < z+1 ) {
+
+                            if(extrapolate_grid_W.getCellMark(q[qk][0], q[qk][1], q[qk][2]) == FLUID){
+                                //std::cout << "[thanda] ExtrapolateVelocity for "<< i << " "<< j << " "<< k << " from " << q[qk][0] << " "<< q[qk][1] << " "<< q[qk][2] << " : " << this->grid.vel_V(q[qk][0], q[qk][1], q[qk][2]) << std::endl;
+
+                                wsum ++;
+
+                                sum += grid.vel_W(q[qk][0],q[qk][1],
+                                        q[qk][2]);
+                            }
+                        }
+                    }
+                    if(wsum){
+                        grid.vel_W.setCell(i,j,k,sum/wsum);
+                    }
+                    //std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i, j+1, k) << " at idx " << i << " "<< j+1 << " "<< k << " : "<< this->grid.vel_V(i,j+1,k) << std::endl;
                 }
             }
+
         }
     }
 }
