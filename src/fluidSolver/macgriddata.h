@@ -3,6 +3,7 @@
 #include <glm/glm.hpp>
 #include <vector>
 #include <algorithm>
+
 using namespace glm;
 
 class MACGridData

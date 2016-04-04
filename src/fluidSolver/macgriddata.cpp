@@ -1,5 +1,6 @@
 #include "macgriddata.h"
 #include <iostream>
+#define DEBUG
 
 float CellSize = 1.f;
 int gDimension[3] = {5, 5, 5};
@@ -30,8 +31,8 @@ MACGridData& MACGridData::operator =(const MACGridData& val){
 int MACGridData::getCellIndex(int i, int j, int k){
 
     int x = i;
-    int y = k * gDimension[0];
-    int z = j * gDimension[0] * gDimension[2];
+    int y = j * gDimension[0];
+    int z = k * gDimension[0] * gDimension[1];
 
     return x+y+z;
 }
@@ -55,8 +56,8 @@ float& MACGridData::operator ()(int i, int j, int k){
             k > gDimension[2]-1) return ret;
 
     int x = i;
-    int y = k * gDimension[0];
-    int z = j * gDimension[0] * gDimension[2];
+    int y = j * gDimension[0];
+    int z = k * gDimension[0] * gDimension[1];
 
     return data[x+y+z];
 }
@@ -77,23 +78,23 @@ int MACGridData::getCellMark(int i, int j, int k){
             k > gDimension[2]-1) return ret;
 
     int x = i;
-    int y = k * gDimension[0];
-    int z = j * gDimension[0] * gDimension[2];
+    int y = j * gDimension[0];
+    int z = k * gDimension[0] * gDimension[1];
 
     return mData[x+y+z];
 }
 
 void MACGridData::setCell(int &i, int &j, int &k, const float val){
     int x = i;
-    int y = k * gDimension[0];
-    int z = j * gDimension[0] * gDimension[2];
+    int y = j * gDimension[0];
+    int z = k * gDimension[0] * gDimension[1];
     data[x+y+z] = val;
 }
 
 void MACGridData::setCellMark(int &i, int &j, int &k, const int val, bool mark){
     int x = i;
-    int y = k * gDimension[0];
-    int z = j * gDimension[0] * gDimension[2];
+    int y = j * gDimension[0];
+    int z = k * gDimension[0] * gDimension[1];
     mData[x+y+z] = val;
 }
 
@@ -118,9 +119,9 @@ float MACGridData::interpolate(const vec3& pt)
     float fract_partx = (pos[0] - i*CellSize);
     float fract_party = (pos[1] - j*CellSize);
     float fract_partz = (pos[2] - k*CellSize);
-
+#ifdef DEBUG
     std::cout << "[thanda] InterpolateVelocity"<< std::endl;
-
+#endif
     // questions -
     // 1: Shouldn't all the neighbors have extrapolated values for correct interpolation - Yes!
     //    This function is trusting ExtrapolateVelocity to make sure there are no non-existant terms.
@@ -128,39 +129,51 @@ float MACGridData::interpolate(const vec3& pt)
     
     // 2: Are boundary cells supposed to be type SOLID? If so why, is cell 0 2 1 not being extrapolated to correctly?
     
-
     float v000 = (*this)(i >= gDimension[0]? gDimension[0] - 1 : i, j >= gDimension[1]? gDimension[1]    -1: j, k >= gDimension[2]? gDimension[2] -1 : k);
     float v010 = (*this)(i >= gDimension[0]? gDimension[0] - 1 : i, j+1 >= gDimension[1]? gDimension[1]  -1: j + 1,k >= gDimension[2]? gDimension[2]-1 : k);
+    float lerp1 = LERP(v000, v010, fract_party);
+#ifdef DEBUG
     std::cout << "[thanda] at idx " << i << " "<< j << " "<< k << " : "<< (*this)(i,j,k) << std::endl;
     std::cout << "[thanda] at idx " << i << " "<< j+1 << " "<< k << " : "<< (*this)(i,j+1,k) << std::endl;
-    float lerp1 = LERP(v000, v010, fract_party);
-    std::cout << "[thanda] lerp1 " << lerp1 << std::endl;    
+    std::cout << "[thanda] lerp1 " << lerp1 << std::endl;
+#endif
 
     float v100 = (*this)(i+1 >= gDimension[0]? gDimension[0] -1 : i+1, j >= gDimension[1]? gDimension[1] -1: j, k >= gDimension[2]? gDimension[2] -1: k);
     float v110 = (*this)(i+1 >= gDimension[0]? gDimension[0] -1 : i+1,j+1 >= gDimension[1]? gDimension[1]-1: j + 1,k >= gDimension[2]? gDimension[2] -1: k);
+    float lerp2 = LERP(v100, v110, fract_party);
+#ifdef DEBUG
     std::cout << "[thanda] at idx " << i+1 << " "<< j << " "<< k << " : "<< (*this)(i+1,j,k) << std::endl;
     std::cout << "[thanda] at idx " << i+1 << " "<< j+1 << " "<< k << " : "<< (*this)(i+1,j+1,k) << std::endl;
-    float lerp2 = LERP(v100, v110, fract_party);
     std::cout << "[thanda] lerp2 " << lerp2 << std::endl;
+#endif
     
     float v001 = (*this)(i >= gDimension[0]? gDimension[0] -1 : i, j >= gDimension[1]? gDimension[1]     -1: j, k+1 >= gDimension[2] ? gDimension[2] -1: k + 1);
     float v011 = (*this)(i >= gDimension[0]? gDimension[0] -1 : i,j+1 >= gDimension[1]? gDimension[1]-1: j + 1,k+1 >= gDimension[2] ? gDimension[2] -1: k+1);
+    float lerp3 = LERP(v001, v011, fract_party);
+#ifdef DEBUG
     std::cout << "[thanda] at idx " << i << " "<< j << " "<< k+1<< " : "<< (*this)(i,j,k+1) << std::endl;
     std::cout << "[thanda] at idx " << i << " "<< j+1 << " "<< k+1 << " : "<< (*this)(i,j+1,k+1) << std::endl;
-    float lerp3 = LERP(v001, v011, fract_party);
     std::cout << "[thanda] lerp3 " << lerp3 << std::endl;
+#endif
     
     float v101 = (*this)(i+1 >= gDimension[0]? gDimension[0] -1 : i+1,j >= gDimension[1]? gDimension[1]    -1: j,k+1 >= gDimension[2] ? gDimension[2] -1: k + 1);
     float v111 = (*this)(i+1 >= gDimension[0]? gDimension[0] -1 : i+1,j+1 >= gDimension[1]? gDimension[1]  -1: j + 1,k+1 >= gDimension[2] ? gDimension[2]-1 : k + 1);
+    float lerp4 = LERP(v101, v111, fract_party);
+#ifdef DEBUG
     std::cout << "[thanda] at idx " << i+1 << " "<< j << " "<< k+1 << " : "<< (*this)(i+1,j,k+1) << std::endl;
     std::cout << "[thanda] at idx " << i+1 << " "<< j+1 << " "<< k+1 << " : "<< (*this)(i+1,j+1,k+1) << std::endl;
-    float lerp4 = LERP(v101, v111, fract_party);
     std::cout << "[thanda] lerp4 " << lerp4 << std::endl;
+#endif
 
     float lerp5 = LERP (lerp1, lerp2, fract_partx);
     float lerp6 = LERP (lerp3, lerp4, fract_partx);
-
     float ret = LERP(lerp5, lerp6, fract_partz);
+#ifdef DEBUG
+    std::cout << "[thanda] lerp5 " << lerp5 << std::endl;
+    std::cout << "[thanda] lerp6 " << lerp6 << std::endl;
+    std::cout << "[thanda] interpolated value " << ret << std::endl;
+#endif
+
 
     return ret;
 }
@@ -196,8 +209,8 @@ float& MACGridDataX::operator ()(int i, int j, int k){
     }
 
     int x = i;
-    int y = k * (gDimension[0] + 1);
-    int z = j * (gDimension[0] + 1) * gDimension[2];
+    int y = j * (gDimension[0] + 1);
+    int z = k * (gDimension[0] + 1) * gDimension[1];
 
     return data[x+y+z];
 }
@@ -212,15 +225,15 @@ vec3 MACGridDataX::worldToLocal(const vec3 &pt) const {
 
 void MACGridDataX::setCell(int &i, int &j, int &k, const float val){
     int x = i;
-    int y = k * (gDimension[0] + 1);
-    int z = j * (gDimension[0] + 1) * gDimension[2];
+    int y = j * (gDimension[0] + 1);
+    int z = k * (gDimension[0] + 1) * gDimension[1];
     data[x+y+z] = val;
 }
 
 void MACGridDataX::setCellAdd(int &i, int &j, int &k, const float val){
     int x = i;
-    int y = k * (gDimension[0] + 1);
-    int z = j * (gDimension[0] + 1) * gDimension[2];
+    int y = j * (gDimension[0] + 1);
+    int z = k * (gDimension[0] + 1) * gDimension[1];
     data[x+y+z] += val;
 }
 
@@ -254,8 +267,8 @@ float& MACGridDataY::operator ()(int i, int j, int k){
     }
 
     int x = i;
-    int y = k * (gDimension[0]);
-    int z = j * (gDimension[0]) * gDimension[2];
+    int y = j * (gDimension[0]);
+    int z = k * (gDimension[0]) * (gDimension[1]+1);
 
     return data[x+y+z];
 }
@@ -270,8 +283,8 @@ vec3 MACGridDataY::worldToLocal(const vec3 &pt) const {
 
 void MACGridDataY::setCell(int &i, int &j, int &k, const float val){
     int x = i;
-    int y = k * (gDimension[0]);
-    int z = j * (gDimension[0]) * gDimension[2];
+    int y = j * (gDimension[0]);
+    int z = k * (gDimension[0]) * (gDimension[1]+1);
 
     if(x+y+z < data.size()-1 && x+y+z >= 0)
         data.at(x+y+z) = val;
@@ -279,8 +292,8 @@ void MACGridDataY::setCell(int &i, int &j, int &k, const float val){
 
 void MACGridDataY::setCellAdd(const int &i, const int &j, const int &k, const float val){
     int x = i;
-    int y = k * (gDimension[0]);
-    int z = j * (gDimension[0]) * gDimension[2];
+    int y = j * (gDimension[0]);
+    int z = k * (gDimension[0]) * (gDimension[1]+1);
 
     if(x+y+z < data.size()-1 && x+y+z >= 0)
         data.at(x+y+z) += val;
@@ -315,8 +328,8 @@ float& MACGridDataZ::operator ()(int i, int j, int k){
     }
 
     int x = i;
-    int y = k * (gDimension[0]);
-    int z = j * (gDimension[0]) * (gDimension[2] + 1);
+    int y = j * (gDimension[0]);
+    int z = k * (gDimension[0]) * (gDimension[1]);
 
     return data[x+y+z];
 }
@@ -331,13 +344,13 @@ vec3 MACGridDataZ::worldToLocal(const vec3 &pt) const {
 
 void MACGridDataZ::setCell(int &i, int &j, int &k, const float val){
     int x = i;
-    int y = k * (gDimension[0]);
-    int z = j * (gDimension[0]) * (gDimension[2] + 1);
+    int y = j * (gDimension[0]);
+    int z = k * (gDimension[0]) * (gDimension[1]);
     data[x+y+z] = val;
 }
 void MACGridDataZ::setCellAdd(int &i, int &j, int &k, const float val){
     int x = i;
-    int y = k * (gDimension[0]);
-    int z = j * (gDimension[0]) * (gDimension[2] + 1);
+    int y = j * (gDimension[0]);
+    int z = k * (gDimension[0]) * (gDimension[1]);
     data[x+y+z] += val;
 }

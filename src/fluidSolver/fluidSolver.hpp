@@ -22,7 +22,7 @@
 #include <Eigen/Sparse>
 
 #include <unordered_map>
-
+//#define DEBUG
 using namespace glm;
 
 enum geomtype {AIR = 0, FLUID = 1, SOLID = 2};

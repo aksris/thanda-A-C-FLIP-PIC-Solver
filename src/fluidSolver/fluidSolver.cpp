@@ -310,12 +310,9 @@ void FluidSolver::initializeMarkerGrid(){
     for(int i = 0; i < x; ++i){
         for(int j = 0; j < y; ++j){
             for(int k = 0; k < z; ++k){
-                if(grid.P.getCellMark(i, j, k) != FLUID){
-                    grid.P.setCellMark(i, j, k, AIR, true);
-                    if(i == 0 || i == x - 1 || j == 0 || j == y - 1 || k == 0 || k == z - 1)
-                    {
-                        grid.P.setCellMark(i, j, k, SOLID, true);
-                    }
+                if(i == 0 || i == x - 1 || j == 0 || j == y - 1 || k == 0 || k == z - 1)
+                {
+                    grid.P.setCellMark(i, j, k, SOLID, true);
                 }
             }
         }
@@ -732,12 +729,13 @@ void FluidSolver::step(){
     int k = 1;
     
     this->storeParticleVelocityToGrid();
+#ifdef DEBUG
     std::cout << "[thanda] storeParticleVelocityToGrid Done" << std::endl;
     std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i, j, k) << " at idx " << i << " "<< j << " "<< k << " : "<< this->grid.vel_V(i,j,k) << std::endl;
     std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i+1, j, k) << " at idx " << i+1 << " "<< j << " "<< k << " : "<< this->grid.vel_V(i+1,j,k) << std::endl;
     std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i, j+1, k) << " at idx " << i << " "<< j+1 << " "<< k << " : "<< this->grid.vel_V(i,j+1,k) << std::endl;
     std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i+1, j+1, k) << " at idx " << i+1 << " "<< j+1 << " "<< k << " : "<< this->grid.vel_V(i+1,j+1,k) << std::endl; // is this valid
-    
+#endif
     
     
     // Step 4 - Add Body Forces like Gravity to MACGrid
@@ -753,26 +751,27 @@ void FluidSolver::step(){
 //    this->calculateNewGridVelocities();
 //    this->setBoundaryVelocitiesToZero(vec3(5.f));
     this->ExtrapolateVelocity();
+#ifdef DEBUG
     std::cout << "[thanda] ExtrapolateVelocity {AIR = 0, FLUID = 1, SOLID = 2} "<< std::endl;
     std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i, j, k) << " at idx " << i << " "<< j << " "<< k << " : "<< this->grid.vel_V(i,j,k) << std::endl;
     std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i+1, j, k) << " at idx " << i+1 << " "<< j << " "<< k << " : "<< this->grid.vel_V(i+1,j,k) << std::endl;
     std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i, j+1, k) << " at idx " << i << " "<< j+1 << " "<< k << " : "<< this->grid.vel_V(i,j+1,k) << std::endl;
     std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i+1, j+1, k) << " at idx " << i+1 << " "<< j+1 << " "<< k << " : "<< this->grid.vel_V(i+1,j+1,k) << std::endl; // is this valid
+#endif
 
     // Step  - Calculate new flip & pic velocities for each particle
 //    this->FlipSolve();
     this->PicSolve();
 
     // Step - Lerp(FLIPVelocity, PICVelocity, 0.95)
-//    for(int i = 0; i < this->ParticlesContainer.size(); ++i){
-//        this->ParticlesContainer.at(i).speed = (1.f - VISCOSITY) * this->particle_save_pic.at(i).speed
-//        /*+ VISCOSITY * this->particle_save.at(i).speed*/;
-//        this->ParticlesContainer.at(i).pos = this->integratePos(this->ParticlesContainer.at(i).pos,
-//                                                                this->ParticlesContainer.at(i).speed, delta, true);
-//        if(this->ParticlesContainer.at(i).gridIdx == vec3(1.f)){
-//            std::cout << this->ParticlesContainer.at(i).speed.y << std::endl;
-//        }
-//    }
+    for(int i = 0; i < this->ParticlesContainer.size(); ++i){
+        this->ParticlesContainer.at(i).speed = (1.f - VISCOSITY) * this->particle_save_pic.at(i).speed
+        /*+ VISCOSITY * this->particle_save.at(i).speed*/;
+        this->ParticlesContainer.at(i).pos = this->integratePos(this->ParticlesContainer.at(i).pos,
+                                                                this->ParticlesContainer.at(i).speed, delta, true);
+    }
+
+    std::cout << "speed " << this->ParticlesContainer.at(0).speed.y << ", pos: " << this->ParticlesContainer.at(0).pos.y << std::endl;
 
     // Step - Collision Response
 //    for(int i = 0; i < this->ParticlesContainer.size(); ++i){
