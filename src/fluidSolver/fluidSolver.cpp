@@ -1,7 +1,7 @@
 //
 //  fluidSolver.cpp
 //  Thanda
-
+#define DEBUG
 
 #include "fluidSolver.hpp"
 Particle::Particle(){
@@ -109,9 +109,9 @@ float rand(int LO, int HI){
 
 void FluidSolver::genParticles(float particle_separation, float boundx, float boundy, float boundz){
     Particle p;
-    for(int i = 1; i < (int)boundx+1; i++){
-        for(int j = 1; j < (int)boundy+1; j++){
-            for(int k = 1; k < (int)boundz+1; k++){
+    for(int i = 1; i < (int)boundx; i++){
+        for(int j = 1; j < (int)boundy; j++){
+            for(int k = 1; k < (int)boundz; k++){
                 int iter = 0;
                 while(iter < 8){
                     p.pos = vec3(rand(i,i+1), rand(j,j+1), rand(k, k+1));
@@ -232,8 +232,9 @@ void FluidSolver::CalculateGravityToCell(float delta){
 
 void FluidSolver::storeParticleVelocityToGrid(){
     //for all the grid indices, calculate vel_u, vel_v, vel_w
-    vec3 index, r; int x,y,z;
-    float h = 1.f;
+    vec3 index, pos, r; int x,y,z;
+    float h = 1.f, weight = 0.f;
+    float fract_partx,fract_party,fract_partz;
     for(int i = 0; i < ParticlesContainer.size(); ++i){
         index = ParticlesContainer.at(i).gridIdx;
         x = index.x, y = index.y, z = index.z;
@@ -244,45 +245,59 @@ void FluidSolver::storeParticleVelocityToGrid(){
         grid.vel_U.worldToLocal(index);
         r = ParticlesContainer.at(i).pos - (index);
         x = index.x, y = index.y, z = index.z;
-        grid.vel_U.setCellAdd(x, y, z, ParticlesContainer.at(i).speed.x * StiffKernel(r, h) * 0.125f);
+        grid.vel_U.setCellAdd(x, y, z, ParticlesContainer.at(i).speed.x * weight * 0.125f);
 
 
         //y direction splatting
-        grid.vel_V.worldToLocal(index);
-        r = ParticlesContainer.at(i).pos - (index);
-        x = index.x, y = index.y, z = index.z;
-        grid.vel_V.setCellAdd(x, y, z, ParticlesContainer.at(i).speed.y * StiffKernel(r, h));
-        grid.save_kernel_wt_V.setCellAdd(x, y, z, StiffKernel(r, h));
+        vec3 w_pos = ParticlesContainer.at(i).pos;
+        pos = grid.vel_V.worldToLocal(w_pos);
+        x = pos.x, y = pos.y, z = pos.z;
+        fract_partx = (pos[0] - x);
+        fract_party = (pos[1] - y);
+        fract_partz = (pos[2] - z);
+        weight = (1-fract_partx)*(1-fract_party)*(1-fract_partz);
+        grid.vel_V.setCellAdd(x, y, z, ParticlesContainer.at(i).speed.y * weight);
+        grid.save_kernel_wt_V.setCellAdd(x, y, z, weight);
 
-        r = ParticlesContainer.at(i).pos - (vec3(x+1, y, z));
-        grid.vel_V.setCellAdd(x+1, y, z, ParticlesContainer.at(i).speed.y * StiffKernel(r, h));
-        grid.save_kernel_wt_V.setCellAdd(x+1, y, z, StiffKernel(r, h));
+        weight = (fract_partx)*(1-fract_party)*(1-fract_partz);
+        grid.vel_V.setCellAdd(x+1, y, z, ParticlesContainer.at(i).speed.y * weight);
+        grid.save_kernel_wt_V.setCellAdd(x+1, y, z, weight);
 
-        r = ParticlesContainer.at(i).pos - (vec3(x-1, y, z));
-        grid.vel_V.setCellAdd(x-1, y, z, ParticlesContainer.at(i).speed.y * StiffKernel(r, h));
-        grid.save_kernel_wt_V.setCellAdd(x-1, y, z, StiffKernel(r, h));
+        r = ParticlesContainer.at(i).pos - (vec3(x+1, y+1, z));
+        weight = (fract_partx)*(fract_party)*(1-fract_partz);
+        grid.vel_V.setCellAdd(x+1, y+1, z, ParticlesContainer.at(i).speed.y * weight);
+        grid.save_kernel_wt_V.setCellAdd(x+1, y+1, z, weight);
 
         r = ParticlesContainer.at(i).pos - (vec3(x, y+1, z));
-        grid.vel_V.setCellAdd(x, y+1, z, ParticlesContainer.at(i).speed.y * StiffKernel(r, h));
-        grid.save_kernel_wt_V.setCellAdd(x, y+1, z, StiffKernel(r, h));
+        weight = (1-fract_partx)*(fract_party)*(1-fract_partz);
+        grid.vel_V.setCellAdd(x, y+1, z, ParticlesContainer.at(i).speed.y * weight);
+        grid.save_kernel_wt_V.setCellAdd(x, y+1, z, weight);
 
-        r = ParticlesContainer.at(i).pos - (vec3(x, y-1, z));
-        grid.vel_V.setCellAdd(x, y-1, z, ParticlesContainer.at(i).speed.y * StiffKernel(r, h));
-        grid.save_kernel_wt_V.setCellAdd(x, y-1, z, StiffKernel(r, h));
+        r = ParticlesContainer.at(i).pos - (vec3(x, y+1, z+1));
+        weight = (1-fract_partx)*(fract_party)*(fract_partz);
+        grid.vel_V.setCellAdd(x, y+1, z+1, ParticlesContainer.at(i).speed.y * weight);
+        grid.save_kernel_wt_V.setCellAdd(x, y+1, z+1, weight);
 
         r = ParticlesContainer.at(i).pos - (vec3(x, y, z+1));
-        grid.vel_V.setCellAdd(x, y, z+1, ParticlesContainer.at(i).speed.y * StiffKernel(r, h) );
-        grid.save_kernel_wt_V.setCellAdd(x, y, z+1, StiffKernel(r, h));
+        weight = (1-fract_partx)*(1-fract_party)*(fract_partz);
+        grid.vel_V.setCellAdd(x, y, z+1, ParticlesContainer.at(i).speed.y * weight );
+        grid.save_kernel_wt_V.setCellAdd(x, y, z+1, weight);
 
-        r = ParticlesContainer.at(i).pos - (vec3(x, y, z-1));
-        grid.vel_V.setCellAdd(x, y, z-1, ParticlesContainer.at(i).speed.y * StiffKernel(r, h));
-        grid.save_kernel_wt_V.setCellAdd(x, y, z-1, StiffKernel(r, h));
+        r = ParticlesContainer.at(i).pos - (vec3(x+1, y, z+1));
+        weight = (fract_partx)*(1-fract_party)*(fract_partz);
+        grid.vel_V.setCellAdd(x+1, y, z+1, ParticlesContainer.at(i).speed.y * weight);
+        grid.save_kernel_wt_V.setCellAdd(x+1, y, z+1, weight);
+
+        r = ParticlesContainer.at(i).pos - (vec3(x+1, y+1, z+1));
+        weight = (fract_partx)*(fract_party)*(fract_partz);
+        grid.vel_V.setCellAdd(x+1, y+1, z+1, ParticlesContainer.at(i).speed.y * weight);
+        grid.save_kernel_wt_V.setCellAdd(x+1, y+1, z+1, weight);
 
         //z direction
         grid.vel_W.worldToLocal(index);
         r = ParticlesContainer.at(i).pos - (index);
         x = index.x, y = index.y, z = index.z;
-        grid.vel_W.setCellAdd(x, y, z, ParticlesContainer.at(i).speed.y * StiffKernel(r, h) * 0.125f);
+        grid.vel_W.setCellAdd(x, y, z, ParticlesContainer.at(i).speed.y * weight * 0.125f);
 
     }
 
@@ -726,15 +741,21 @@ void FluidSolver::step(){
     // Step 3 - Store Particle Velocity at current time step to MACGrid
     int i = 0;
     int j = 1;
-    int k = 1;
+    int k = 0;
     
     this->storeParticleVelocityToGrid();
 #ifdef DEBUG
-    std::cout << "[thanda] storeParticleVelocityToGrid Done" << std::endl;
+        std::cout << "[thanda] storeParticleVelocityToGrid Done" << std::endl;
     std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i, j, k) << " at idx " << i << " "<< j << " "<< k << " : "<< this->grid.vel_V(i,j,k) << std::endl;
-    std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i+1, j, k) << " at idx " << i+1 << " "<< j << " "<< k << " : "<< this->grid.vel_V(i+1,j,k) << std::endl;
     std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i, j+1, k) << " at idx " << i << " "<< j+1 << " "<< k << " : "<< this->grid.vel_V(i,j+1,k) << std::endl;
+    std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i+1, j, k) << " at idx " << i+1 << " "<< j << " "<< k << " : "<< this->grid.vel_V(i+1,j,k) << std::endl;
     std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i+1, j+1, k) << " at idx " << i+1 << " "<< j+1 << " "<< k << " : "<< this->grid.vel_V(i+1,j+1,k) << std::endl; // is this valid
+
+    std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i, j, k+1) << " at idx " << i << " "<< j << " "<< k+1 << " : "<< this->grid.vel_V(i,j,k+1) << std::endl;
+    std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i, j+1, k+1) << " at idx " << i << " "<< j+1 << " "<< k+1 << " : "<< this->grid.vel_V(i,j+1,k+1) << std::endl;
+    std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i+1, j, k+1) << " at idx " << i+1 << " "<< j << " "<< k+1 << " : "<< this->grid.vel_V(i+1,j,k+1) << std::endl;
+    std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i+1, j+1, k+1) << " at idx " << i+1 << " "<< j+1 << " "<< k+1 << " : "<< this->grid.vel_V(i+1,j+1,k+1) << std::endl; // is this valid
+
 #endif
     
     
@@ -754,9 +775,15 @@ void FluidSolver::step(){
 #ifdef DEBUG
     std::cout << "[thanda] ExtrapolateVelocity {AIR = 0, FLUID = 1, SOLID = 2} "<< std::endl;
     std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i, j, k) << " at idx " << i << " "<< j << " "<< k << " : "<< this->grid.vel_V(i,j,k) << std::endl;
-    std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i+1, j, k) << " at idx " << i+1 << " "<< j << " "<< k << " : "<< this->grid.vel_V(i+1,j,k) << std::endl;
     std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i, j+1, k) << " at idx " << i << " "<< j+1 << " "<< k << " : "<< this->grid.vel_V(i,j+1,k) << std::endl;
+    std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i+1, j, k) << " at idx " << i+1 << " "<< j << " "<< k << " : "<< this->grid.vel_V(i+1,j,k) << std::endl;
     std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i+1, j+1, k) << " at idx " << i+1 << " "<< j+1 << " "<< k << " : "<< this->grid.vel_V(i+1,j+1,k) << std::endl; // is this valid
+
+    std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i, j, k+1) << " at idx " << i << " "<< j << " "<< k+1 << " : "<< this->grid.vel_V(i,j,k+1) << std::endl;
+    std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i, j+1, k+1) << " at idx " << i << " "<< j+1 << " "<< k+1 << " : "<< this->grid.vel_V(i,j+1,k+1) << std::endl;
+    std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i+1, j, k+1) << " at idx " << i+1 << " "<< j << " "<< k+1 << " : "<< this->grid.vel_V(i+1,j,k+1) << std::endl;
+    std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i+1, j+1, k+1) << " at idx " << i+1 << " "<< j+1 << " "<< k+1 << " : "<< this->grid.vel_V(i+1,j+1,k+1) << std::endl; // is this valid
+
 #endif
 
     // Step  - Calculate new flip & pic velocities for each particle
@@ -771,7 +798,7 @@ void FluidSolver::step(){
                                                                 this->ParticlesContainer.at(i).speed, delta, true);
     }
 
-    std::cout << "speed " << this->ParticlesContainer.at(0).speed.y << ", pos: " << this->ParticlesContainer.at(0).pos.y << std::endl;
+//    std::cout << "speed " << this->ParticlesContainer.at(0).speed.y << ", pos: " << this->ParticlesContainer.at(0).pos.y << std::endl;
 
     // Step - Collision Response
 //    for(int i = 0; i < this->ParticlesContainer.size(); ++i){
