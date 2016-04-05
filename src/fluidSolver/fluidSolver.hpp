@@ -26,8 +26,6 @@
 using namespace glm;
 
 enum geomtype {AIR = 0, FLUID = 1, SOLID = 2};
-#define VISCOSITY 0.95f
-#define EPSILON 0.00001f
 
 
 class Particle{
@@ -59,6 +57,8 @@ public:
     MACGridDataY save_kernel_wt_V;
     MACGridDataZ save_kernel_wt_W;
     MACGridData P;
+    const float CellSize = 1.f;
+
 protected:
 };
 

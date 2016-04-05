@@ -2,7 +2,11 @@
 //  fluidSolver.cpp
 //  Thanda
 #define DEBUG
+#define VISCOSITY 0.f
+#define EPSILON 0.00001f
+
 #include "fluidSolver.hpp"
+
 Particle::Particle(){
     pos = glm::vec3(0.f, 0.f, 0.f);
     speed = glm::vec3(0.f, 0.f, 0.f);
@@ -417,59 +421,6 @@ void FluidSolver::initializeMarkerGrid(){
     }
 }
 
-void FluidSolver::calculateNewGridVelocities(){
-    float h = 1.4f;
-    int x = grid.P.containerBounds.x;
-    int y = grid.P.containerBounds.y;
-    int z = grid.P.containerBounds.z;
-    for(int i = 0; i < x + 1; ++i){
-        for(int j = 0; j < y; ++j){
-            for( int k = 0; k < z; ++k){
-                if(i>0 && i<x){
-                    float pf = grid.P(i,j,k);
-                    float pb = grid.P(i-1,j,k);
-                    pf = grid.P(i,j,k);
-                    pb = grid.P(i-1,j,k);
-                    float xval = grid.vel_U(i,j,k);
-                    xval -= (pf-pb)/h;
-                    grid.vel_U.setCell(i,j,k,xval);
-                }
-            }
-        }
-    }
-
-    for( int i = 0; i < x ; ++i){
-        for(int j = 0; j < y + 1; ++j){
-            for(int k = 0; k < z; ++k){
-                if(j>0 && j<y){
-                    float pf = grid.P(i,j,k);
-                    float pb = grid.P(i,j-1,k);
-                    pf = grid.P(i,j,k);
-                    pb = grid.P(i,j-1,k);
-                    float xval = grid.vel_V(i,j,k);
-                    xval -= (pf-pb)/h;
-                    grid.vel_V.setCell(i,j,k,xval);
-                }
-            }
-        }
-    }
-
-    for( int i = 0; i < x; ++i){
-        for(int j = 0; j < y; ++j){
-            for(int k = 0; k < z + 1; ++k){
-                if(k>0 && k<z){
-                    float pf = grid.P(i,j,k);
-                    float pb = grid.P(i,j,k-1);
-                    pf = grid.P(i,j,k);
-                    pb = grid.P(i,j,k-1);
-                    float xval = grid.vel_W(i,j,k);
-                    xval -= (pf-pb)/h;
-                    grid.vel_W.setCell(i,j,k,xval);
-                }
-            }
-        }
-    }
-}
 
 void FluidSolver::insertCoefficient(int id, int i, int j, int k, double w, std::vector<Eigen::Triplet<double>> &coeffs, int n){
     n = 5;
@@ -560,7 +511,7 @@ void FluidSolver::fillPressureGrid(Eigen::VectorXd x, int n){
 #ifdef DEBUG
                 if(grid.P.getCellMark(i,j,k) == FLUID){
                     float x = grid.P(i,j,k);
-                    std::cout << "Pressure at i,j,k " << x << std::endl;
+                    std::cout << "Pressure at "<< i << " "<< j << " " << k << ": "<<x<< std::endl;
                 }
 #endif
             }
@@ -947,21 +898,21 @@ void FluidSolver::step(){
     this->storeCurrentGridVelocities();
     
     this->setBoundaryVelocitiesToZero(containerBounds);
+    
     //pressure solve
     this->ProjectPressure();
     
-    this->calculateNewGridVelocities();
-    this->setBoundaryVelocitiesToZero(vec3(5.f));
+    this->setBoundaryVelocitiesToZero(containerBounds);
     this->ExtrapolateVelocity();
 
     // Step  - Calculate new flip & pic velocities for each particle
-    this->FlipSolve();
+//    this->FlipSolve();
     this->PicSolve();
 
     // Step - Lerp(FLIPVelocity, PICVelocity, 0.95)
     for(int i = 0; i < this->ParticlesContainer.size(); ++i){
-        this->ParticlesContainer.at(i).speed = (1.f - VISCOSITY) * this->particle_save_pic.at(i).speed
-        + VISCOSITY * this->particle_save.at(i).speed;
+        this->ParticlesContainer.at(i).speed = (1.f - VISCOSITY) * this->particle_save_pic.at(i).speed;
+//        + VISCOSITY * this->particle_save.at(i).speed;
         this->ParticlesContainer.at(i).pos = this->integratePos(this->ParticlesContainer.at(i).pos,
                                                                 this->ParticlesContainer.at(i).speed, delta, true);
     }

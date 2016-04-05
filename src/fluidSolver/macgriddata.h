@@ -27,6 +27,7 @@ public:
     vec3 containerBounds;
     std::vector<float> data;
     std::vector<int> mData;
+
 protected:
 };
 

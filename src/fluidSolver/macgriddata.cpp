@@ -1,7 +1,6 @@
 #include "macgriddata.h"
 #include <iostream>
 
-float CellSize = 1.f;
 int gDimension[3] = {5, 5, 5};
 float LERP(float val1, float val2, float t){
     return (1 - t) * val1 + t * val2;
@@ -37,7 +36,7 @@ int MACGridData::getCellIndex(int i, int j, int k){
 }
 
 void MACGridData::MACGridDataInitialize(){
-    containerBounds[0] = CellSize * gDimension[0];
+    containerBounds[0] = CellSize*gDimension[0];
     containerBounds[1] = CellSize*gDimension[1];
     containerBounds[2] = CellSize*gDimension[2];
     data.resize(gDimension[0]*gDimension[1]*gDimension[2]);
