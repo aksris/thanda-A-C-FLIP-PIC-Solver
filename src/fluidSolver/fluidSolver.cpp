@@ -1,7 +1,7 @@
 //
 //  fluidSolver.cpp
 //  Thanda
-#define DEBUG
+//#define DEBUG
 #define VISCOSITY 0.f
 #define EPSILON 0.00001f
 
@@ -150,9 +150,9 @@ void FluidSolver::genParticles(float particle_separation, float boundx, float bo
         for(int j = 1; j < (int)boundy; j++){
             for(int k = 1; k < (int)boundz; k++){
                 iter=0;
-                while(iter < 8){
+                while(iter < 16){
 //                    P->pos = vec3(1.8,1.8,1.6);
-                    p.pos = vec3(rand(i,i+1), rand(j,j+1), rand(k, k+1));
+                    p.pos = vec3(rand(i,i+1), rand(j,j+1), rand(k, k+1)) * this->cellSize;
                     p.speed = vec3(0.f, 0.f, 0.f);
                     p.gridIdx = vec3(i,j,k);
                     ParticlesContainer.push_back(p);
@@ -271,7 +271,7 @@ void FluidSolver::CalculateGravityToCell(float delta){
 void FluidSolver::storeParticleVelocityToGrid(){
     //for all the grid indices, calculate vel_u, vel_v, vel_w
     vec3 index, pos, r; int x,y,z;
-    float h = this->grid->CellSize, weight = 0.f;
+    float h = this->cellSize, weight = 0.f;
     float fract_partx,fract_party,fract_partz;
     for(int i = 0; i < ParticlesContainer.size(); ++i){
         vec3 w_pos = ParticlesContainer.at(i).pos;

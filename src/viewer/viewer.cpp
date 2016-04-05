@@ -208,11 +208,13 @@ void Viewer::display(){
     static GLubyte* g_particule_color_data         = new GLubyte[fluid->MaxParticles * 4];
     glm::mat4 ViewProjectionMatrix;
     
-//    // Step 1 - Particle Seeding
-    fluid->genParticles(scene.particle_separation, scene.particleBounds.x, scene.particleBounds.y, scene.particleBounds.z);
-//
-//    //Step 2 - construct mac grid
+    //Step 1 - construct mac grid
     fluid->constructMACGrid(scene);
+
+
+    // Step 2 - Particle Seeding
+    fluid->genParticles(scene.particle_separation, scene.particleBounds.x, scene.particleBounds.y, scene.particleBounds.z);
+
 
     double lastTime = glfwGetTime();
     do{

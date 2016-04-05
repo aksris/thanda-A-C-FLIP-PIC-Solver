@@ -57,7 +57,6 @@ public:
     MACGridDataY* save_kernel_wt_V;
     MACGridDataZ* save_kernel_wt_W;
     MACGridData* P;
-    const float CellSize = 1.f;
 
 protected:
 };
