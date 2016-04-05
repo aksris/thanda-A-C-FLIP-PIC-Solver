@@ -4,7 +4,7 @@
 #define DEBUG
 #define VISCOSITY 0.f
 #define EPSILON 0.00001f
-#define SEED 1
+#define SEED 8
 
 #include "fluidSolver.hpp"
 #include "../scene/scene.hpp"
@@ -459,52 +459,54 @@ void FluidSolver::insertCoefficient(int id, int i, int j, int k, double w, std::
 }
 
 void FluidSolver::buildMatrixA(std::vector<Eigen::Triplet<double>>& coefficients, long n){
+    float density = 1000.f;
     for(int i = 0; i < resolution.x; ++i){
         for(int j = 0; j < resolution.y; ++j){
             for(int k = 0; k < resolution.z; ++k){
                 int id = k * resolution.x * resolution.y + j * resolution.x + i; //id for matrix
-                int scale = 1;
+                float scale = delta / (density * cellSize * cellSize);
+                float Adiag = 0.f;
                 if(grid->P->getCellMark(i,j,k) == FLUID){
                     //x
                     if(i > 0 && grid->P->getCellMark(i-1,j,k) == FLUID){
-                        scale++;
-                        insertCoefficient(id, i-1,j,k, -1, coefficients, n);
+                        Adiag += scale;
+                        insertCoefficient(id, i-1,j,k, -scale, coefficients, n);
                     }
                     if(i < n && grid->P->getCellMark(i+1,j,k) == FLUID){
-                        scale++;
-                        insertCoefficient(id, i+1,j,k, -1, coefficients, n);
+                        Adiag += scale;
+                        insertCoefficient(id, i+1,j,k, -scale, coefficients, n);
                     }
                     else if(i < n && grid->P->getCellMark(i+1,j,k) == AIR){
-                        scale++;
+                        Adiag += scale;
                     }
 
                     //y
                     if(j > 0 && grid->P->getCellMark(i,j-1,k) == FLUID){
-                        scale++;
-                        insertCoefficient(id, i,j-1,k, -1, coefficients, n);
+                        Adiag += scale;
+                        insertCoefficient(id, i,j-1,k, -scale, coefficients, n);
                     }
                     if(j < n && grid->P->getCellMark(i,j+1,k) == FLUID){
-                        scale++;
-                        insertCoefficient(id, i,j+1,k, -1, coefficients, n);
+                        Adiag += scale;
+                        insertCoefficient(id, i,j+1,k, -scale, coefficients, n);
                     }
                     else if(j < n && grid->P->getCellMark(i,j+1,k) == AIR){
-                        scale++;
+                        Adiag += scale;
                     }
 
                     //z
                     if(k > 0 && grid->P->getCellMark(i,j,k-1) == FLUID){
-                        scale++;
-                        insertCoefficient(id, i,j,k-1, -1, coefficients, n);
+                        Adiag += scale;
+                        insertCoefficient(id, i,j,k-1, -scale, coefficients, n);
                     }
                     if(k < n && grid->P->getCellMark(i,j,k+1) == FLUID){
-                        scale++;
-                        insertCoefficient(id, i,j,k+1, -1, coefficients, n);
+                        Adiag += scale;
+                        insertCoefficient(id, i,j,k+1, -scale, coefficients, n);
                     }
                     else if(k < n && grid->P->getCellMark(i,j,k+1) == AIR){
-                        scale++;
+                        Adiag += scale;
                     }
                 }
-                insertCoefficient(id, i,j,k, scale, coefficients, n);
+                insertCoefficient(id, i,j,k, Adiag, coefficients, n);
             }
         }
     }
@@ -576,10 +578,12 @@ void FluidSolver::ProjectPressure(){
     Eigen::VectorXd p = chol.solve(u);
     fillPressureGrid(p, m);
 
-    SubtractPressureGradient();
+//    std::cout << u(31) << std::endl;
 
+    SubtractPressureGradient();
     buildDivergences(u, m);
-    int a =1;
+//    std::cout << u(31) << std::endl;
+//    int a =1;
 }
 
 void FluidSolver::SubtractPressureGradient(){
@@ -854,8 +858,8 @@ void FluidSolver::setBoundaryVelocitiesToZero(){
                 if(i == 0 || i == x){
                     grid->vel_U->setCell(i, j, k, 0.f);
                 }
-                if (i > 0 && i < x && ((grid->P->getCellMark(i,j,k) == SOLID && grid->P->getCellIndex(i-1,j,k) == FLUID) ||
-                                       (grid->P->getCellMark(i,j,k) == FLUID && grid->P->getCellIndex(i-1,j,k) == SOLID))){
+                if (i > 0 && i < x && ((grid->P->getCellMark(i,j,k) == SOLID && grid->P->getCellMark(i-1,j,k) == FLUID) ||
+                                       (grid->P->getCellMark(i,j,k) == FLUID && grid->P->getCellMark(i-1,j,k) == SOLID))){
                     grid->vel_U->setCell(i, j, k, 0.f);
                 }
             }
@@ -869,8 +873,8 @@ void FluidSolver::setBoundaryVelocitiesToZero(){
                 if(j == 0 || j == y){
                     grid->vel_V->setCell(i, j, k, 0.f);
                 }
-                if (j > 0 && j < y && ((grid->P->getCellMark(i,j,k) == SOLID && grid->P->getCellIndex(i,j-1,k) == FLUID) ||
-                                       (grid->P->getCellMark(i,j,k) == FLUID && grid->P->getCellIndex(i,j,k) == SOLID))){
+                if (j > 0 && j < y && ((grid->P->getCellMark(i,j,k) == SOLID && grid->P->getCellMark(i,j-1,k) == FLUID) ||
+                                       (grid->P->getCellMark(i,j,k) == FLUID && grid->P->getCellMark(i,j-1,k) == SOLID))){
                     grid->vel_V->setCell(i, j, k, 0.f);
                 }
             }
@@ -883,8 +887,8 @@ void FluidSolver::setBoundaryVelocitiesToZero(){
                 if(k == 0 || k == z){
                     grid->vel_W->setCell(i, j, k, 0.f);
                 }
-                if (k > 0 && k < z && ((grid->P->getCellMark(i,j,k) == SOLID && grid->P->getCellIndex(i,j,k-1) == FLUID) ||
-                                       (grid->P->getCellMark(i,j,k) == FLUID && grid->P->getCellIndex(i,j,k-1) == SOLID))){
+                if (k > 0 && k < z && ((grid->P->getCellMark(i,j,k) == SOLID && grid->P->getCellMark(i,j,k-1) == FLUID) ||
+                                       (grid->P->getCellMark(i,j,k) == FLUID && grid->P->getCellMark(i,j,k-1) == SOLID))){
                     grid->vel_W->setCell(i, j, k, 0.f);
                 }
             }
