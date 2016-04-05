@@ -26,9 +26,8 @@
 using namespace glm;
 
 enum geomtype {AIR = 0, FLUID = 1, SOLID = 2};
-#define VISCOSITY 0.f
+#define VISCOSITY 0.95f
 #define EPSILON 0.00001f
-
 
 
 class Particle{
@@ -56,7 +55,9 @@ public:
     MACGridDataX vel_U;
     MACGridDataY vel_V;
     MACGridDataZ vel_W;
+    MACGridDataX save_kernel_wt_U;
     MACGridDataY save_kernel_wt_V;
+    MACGridDataZ save_kernel_wt_W;
     MACGridData P;
 protected:
 };
@@ -84,6 +85,7 @@ public:
     void initMACGrid(Particle &p);
     void storeParticleVelocityToGrid();
     void storeCurrentGridVelocities();
+    void SubtractPressureGradient();
 
     void step();
     void clearGrid();

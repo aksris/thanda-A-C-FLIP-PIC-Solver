@@ -232,7 +232,7 @@ void MACGridDataX::setCell(int &i, int &j, int &k, const float val){
     data[x+y+z] = val;
 }
 
-void MACGridDataX::setCellAdd(int &i, int &j, int &k, const float val){
+void MACGridDataX::setCellAdd(const int &i, const int &j, const int &k, const float val){
     int x = i;
     int y = j * (gDimension[0] + 1);
     int z = k * (gDimension[0] + 1) * gDimension[1];
@@ -350,7 +350,7 @@ void MACGridDataZ::setCell(int &i, int &j, int &k, const float val){
     int z = k * (gDimension[0]) * (gDimension[1]);
     data[x+y+z] = val;
 }
-void MACGridDataZ::setCellAdd(int &i, int &j, int &k, const float val){
+void MACGridDataZ::setCellAdd(const int &i, const int &j, const int &k, const float val){
     int x = i;
     int y = j * (gDimension[0]);
     int z = k * (gDimension[0]) * (gDimension[1]);
