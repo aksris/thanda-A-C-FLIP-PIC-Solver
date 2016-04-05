@@ -20,14 +20,13 @@
 #include <Eigen/Dense>
 #include <Eigen/IterativeLinearSolvers>
 #include <Eigen/Sparse>
-
 #include <unordered_map>
 
 using namespace glm;
 
 enum geomtype {AIR = 0, FLUID = 1, SOLID = 2};
 
-
+class Scene;
 class Particle{
 
 public:
@@ -47,16 +46,17 @@ public:
 
 class MACGrid{
 public:
-    MACGrid();
+    MACGrid(const ivec3& resolution, const vec3& containerBounds, float cellSize);
+    virtual ~MACGrid();
     void initialize();
     MACGrid& operator=(const MACGrid& val);
-    MACGridDataX vel_U;
-    MACGridDataY vel_V;
-    MACGridDataZ vel_W;
-    MACGridDataX save_kernel_wt_U;
-    MACGridDataY save_kernel_wt_V;
-    MACGridDataZ save_kernel_wt_W;
-    MACGridData P;
+    MACGridDataX* vel_U;
+    MACGridDataY* vel_V;
+    MACGridDataZ* vel_W;
+    MACGridDataX* save_kernel_wt_U;
+    MACGridDataY* save_kernel_wt_V;
+    MACGridDataZ* save_kernel_wt_W;
+    MACGridData* P;
     const float CellSize = 1.f;
 
 protected:
@@ -64,16 +64,18 @@ protected:
 
 class FluidSolver{
 public:
-    FluidSolver();
+    FluidSolver(const ivec3& resolution, const vec3 &containerBounds);
 
-    MACGrid grid;
-    MACGrid tmp;
+    MACGrid* grid;
+    MACGrid* tmp;
 
-    int i_size;
-    int j_size;
     float delta;
     int num_cells;
     vec3 containerBounds;
+    ivec3 resolution;
+    float cellSize;
+
+    Scene* scene;
 
     int LastUsedParticle; int MaxParticles;
     std::vector<Particle> ParticlesContainer;
@@ -81,7 +83,7 @@ public:
     std::vector<Particle> particle_save;
     std::vector<Particle> particle_save_pic;//to save particle velocity
 
-    void constructMACGrid(glm::vec3 containerBounds);
+    void constructMACGrid(const Scene& scene);
     void initMACGrid(Particle &p);
     void storeParticleVelocityToGrid();
     void storeCurrentGridVelocities();
@@ -103,13 +105,13 @@ public:
     void insertCoefficient(int id, int i, int j, int k, double w, std::vector<Eigen::Triplet<double> > &coeffs, int n);
 
     void calculateNewGridVelocities();
-    void setBoundaryVelocitiesToZero(const glm::vec3 containerBounds);
+    void setBoundaryVelocitiesToZero();
     void FlipSolve();
     void PicSolve();
 
     void ProjectPressure();
 
-    vec3 integratePos(const vec3 pos, const vec3 speed, float time_step, bool RK2);
+    vec3 integratePos(const vec3& pos, const vec3& speed, const float& time_step, bool RK2);
 
     void calculateDensity(Particle &p);
     void calculateGravityForces(Particle& p, float delta);

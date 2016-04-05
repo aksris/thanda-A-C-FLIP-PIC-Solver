@@ -4,10 +4,11 @@
 
 #include "viewer.hpp"
 
-Viewer::Viewer(int width, int height, Scene s){
+Viewer::Viewer(int width, int height, const Scene &s){
     w = width;
     h = height;
     scene = s;
+    fluid = new FluidSolver(scene.resolution, scene.containerBounds);
 }
 
 void Viewer::initializeShader(){
@@ -71,7 +72,7 @@ void Viewer::initializeGL(){
     glfwSetCursorPos(window, w/2, h/2);
 
     // Dark blue background
-    glClearColor(0.4f, 0.4f, 0.4f, 0.0f);
+    glClearColor(1.f, 1.f, 1.f, 0.0f);
 
     // Enable depth test
     glEnable(GL_DEPTH_TEST);
@@ -194,24 +195,24 @@ void Viewer::display(){
     glGenBuffers(1, &particles_position_buffer);
     glBindBuffer(GL_ARRAY_BUFFER, particles_position_buffer);
     // Initialize with empty (NULL) buffer : it will be updated later, each frame.
-    glBufferData(GL_ARRAY_BUFFER, fluid.MaxParticles * 4 * sizeof(GLfloat), NULL, GL_STREAM_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, fluid->MaxParticles * 4 * sizeof(GLfloat), NULL, GL_STREAM_DRAW);
 
     GLuint particles_color_buffer;
     glGenBuffers(1, &particles_color_buffer);
     glBindBuffer(GL_ARRAY_BUFFER, particles_color_buffer);
     // Initialize with empty (NULL) buffer : it will be updated later, each frame.
-    glBufferData(GL_ARRAY_BUFFER, fluid.MaxParticles * 4 * sizeof(GLubyte), NULL, GL_STREAM_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, fluid->MaxParticles * 4 * sizeof(GLubyte), NULL, GL_STREAM_DRAW);
     
     
-    static GLfloat* g_particule_position_size_data = new GLfloat[fluid.MaxParticles * 4];
-    static GLubyte* g_particule_color_data         = new GLubyte[fluid.MaxParticles * 4];
+    static GLfloat* g_particule_position_size_data = new GLfloat[fluid->MaxParticles * 4];
+    static GLubyte* g_particule_color_data         = new GLubyte[fluid->MaxParticles * 4];
     glm::mat4 ViewProjectionMatrix;
     
 //    // Step 1 - Particle Seeding
-    fluid.genParticles(scene.particle_separation, scene.particleBounds.x, scene.particleBounds.y, scene.particleBounds.z);
+    fluid->genParticles(scene.particle_separation, scene.particleBounds.x, scene.particleBounds.y, scene.particleBounds.z);
 //
 //    //Step 2 - construct mac grid
-    fluid.constructMACGrid(scene.containerBounds);
+    fluid->constructMACGrid(scene);
 
     double lastTime = glfwGetTime();
     do{
@@ -221,7 +222,7 @@ void Viewer::display(){
         double currentTime = glfwGetTime();
         lastTime = currentTime;
 
-        fluid.step();
+        fluid->step();
 
         // setup camera
         camera.computeMatricesFromInputs(window);
@@ -234,9 +235,9 @@ void Viewer::display(){
         drawCube();
         
         int ParticlesCount = 0;
-        for(int i=0; i< fluid.ParticlesContainer.size(); i++){
+        for(int i=0; i< fluid->ParticlesContainer.size(); i++){
 
-            Particle& p = fluid.ParticlesContainer[i]; // shortcut
+            Particle& p = fluid->ParticlesContainer[i]; // shortcut
             p.cameradistance = glm::length2( p.pos - CameraPosition );
 
             // Fill the GPU buffer
@@ -255,7 +256,7 @@ void Viewer::display(){
 
         }
 
-        int MaxParticles = fluid.ParticlesContainer.size();
+        int MaxParticles = fluid->ParticlesContainer.size();
 
         //  Use our shader
         glUseProgram(programID);

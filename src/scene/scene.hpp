@@ -21,6 +21,8 @@ public:
     glm::vec3 containerBounds; //scale of the container with <0, 0, 0> as center
     glm::vec3 particleBounds; //cube right now; <0, 0, 0>
 
+    glm::ivec3 resolution;
+
     float particle_separation;
 
     void parseScene(const char* filename, Scene& scene);

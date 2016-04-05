@@ -28,7 +28,7 @@ using namespace std;
 
 class Viewer {
 public:
-    Viewer(int width, int height, Scene s);
+    Viewer(int width, int height, const Scene& s);
     void initializeGL();
     void initializeShader();
 
@@ -41,12 +41,12 @@ public:
     Scene scene;
     Cube cube;
     Camera camera;
-    FluidSolver fluid;
+    FluidSolver *fluid;
     GLuint CameraRight_worldspace_ID, CameraUp_worldspace_ID,  ViewProjMatrixID, programID, TextureID, programIDGeometry, geomMatrixID;
     GLuint elementbuffer, cubevertexbuffer;
 
     GLFWwindow* window;
-    
+
     glm::mat4 ProjectionMatrix;
     glm::mat4 ViewMatrix;
     // We will need the camera's position in order to sort the particles
@@ -54,7 +54,7 @@ public:
     // There should be a getCameraPosition() function in common/controls.cpp,
     // but this works too.
     glm::vec3 CameraPosition;
-    
-    
+
+
 };
 #endif /* viewer_hpp */

@@ -44,8 +44,13 @@ void Scene::parseScene(const char* filename, Scene& scene){
 
     float separation = root["particleSeparation"].asFloat();
 
+    int gbound_x = root["grid"]["boundX"].asInt();
+    int gbound_y = root["grid"]["boundY"].asInt();
+    int gbound_z = root["grid"]["boundZ"].asInt();
+
     scene.containerBounds = glm::vec3(scale_x, scale_y, scale_z);
     scene.particleBounds = glm::vec3(bound_x, bound_y, bound_z);
+    scene.resolution = glm::ivec3(gbound_x, gbound_y, gbound_z);
     scene.particle_separation = separation;
 }
 

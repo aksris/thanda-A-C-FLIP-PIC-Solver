@@ -6,14 +6,24 @@ float LERP(float val1, float val2, float t){
     return (1 - t) * val1 + t * val2;
 }
 
-MACGridData::MACGridData():
-containerBounds(5.0f, 5.f, 5.f)
+MACGridData::MACGridData(ivec3 dimensions, const vec3& containerBounds, float cellSize) :
+    resolution(dimensions),
+    containerBounds(containerBounds),
+    CellSize(cellSize)
 {
+//    CellSize = this->containerBounds.x / resolution.x;
+
+    this->containerBounds = containerBounds;
+    data.resize(resolution.x * resolution.y * resolution.z);
+    mData.resize(resolution.x * resolution.y * resolution.z);
+    std::fill(data.begin(), data.end(), 0.f);
+    std::fill(mData.begin(), mData.end(), 0);
 }
 
 MACGridData::MACGridData(const MACGridData &val){
 
     containerBounds = val.containerBounds;
+    resolution = val.resolution;
 }
 
 MACGridData& MACGridData::operator =(const MACGridData& val){
@@ -22,25 +32,27 @@ MACGridData& MACGridData::operator =(const MACGridData& val){
     }
 
     data = val.data;
+    mData = val.mData;
     containerBounds = val.containerBounds;
+    resolution = val.resolution;
     return *this;
 }
 
 int MACGridData::getCellIndex(int i, int j, int k){
 
     int x = i;
-    int y = j * gDimension[0];
-    int z = k * gDimension[0] * gDimension[1];
+    int y = j * resolution.x;
+    int z = k * resolution.x * resolution.y;
 
     return x+y+z;
 }
 
 void MACGridData::MACGridDataInitialize(){
-    containerBounds[0] = CellSize*gDimension[0];
-    containerBounds[1] = CellSize*gDimension[1];
-    containerBounds[2] = CellSize*gDimension[2];
-    data.resize(gDimension[0]*gDimension[1]*gDimension[2]);
-    mData.resize(gDimension[0]*gDimension[1]*gDimension[2]);
+    containerBounds[0] = CellSize*resolution.x;
+    containerBounds[1] = CellSize*resolution.y;
+    containerBounds[2] = CellSize*resolution.z;
+    data.resize(resolution.x*resolution.y*resolution.z);
+    mData.resize(resolution.x*resolution.y*resolution.z);
     std::fill(data.begin(), data.end(), 0.f);
     std::fill(mData.begin(), mData.end(), 0.f);
 }
@@ -49,15 +61,15 @@ float& MACGridData::operator ()(int i, int j, int k){
 
     float ret = 0.f;
     if (i < 0 || j < 0 || k < 0 ||
-            i > gDimension[0]-1 ||
-            j > gDimension[1]-1 ||
-            k > gDimension[2]-1) return ret;
+            i > resolution.x-1 ||
+            j > resolution.y-1 ||
+            k > resolution.z-1) return ret;
 
     int x = i;
-    int y = j * gDimension[0];
-    int z = k * gDimension[0] * gDimension[1];
+    int y = j * resolution.x;
+    int z = k * resolution.x * resolution.y;
 
-    return data[x+y+z];
+    return data.at(x+y+z);
 }
 
 void MACGridData::getCell(const vec3 &pt, int &i, int &j, int &k){
@@ -71,29 +83,36 @@ void MACGridData::getCell(const vec3 &pt, int &i, int &j, int &k){
 int MACGridData::getCellMark(int i, int j, int k){
     float ret = 0.f;
     if (i < 0 || j < 0 || k < 0 ||
-            i > gDimension[0]-1 ||
-            j > gDimension[1]-1 ||
-            k > gDimension[2]-1) return ret;
+            i > resolution.x-1 ||
+            j > resolution.y-1 ||
+            k > resolution.z-1) return ret;
 
     int x = i;
-    int y = j * gDimension[0];
-    int z = k * gDimension[0] * gDimension[1];
+    int y = j * resolution.x;
+    int z = k * resolution.x * resolution.y;
 
-    return mData[x+y+z];
+    return mData.at(x+y+z);
 }
 
 void MACGridData::setCell(int &i, int &j, int &k, const float val){
     int x = i;
-    int y = j * gDimension[0];
-    int z = k * gDimension[0] * gDimension[1];
-    data[x+y+z] = val;
+    int y = j * resolution.x;
+    int z = k * resolution.x * resolution.y;
+    data.at(x+y+z) = val;
+}
+
+void MACGridData::setCellAdd(const int &i, const int &j, const int &k, const float val){
+    int x = i;
+    int y = j * resolution.x;
+    int z = k * resolution.x * resolution.y;
+    data.at(x+y+z) += val;
 }
 
 void MACGridData::setCellMark(int &i, int &j, int &k, const int val, bool mark){
     int x = i;
-    int y = j * gDimension[0];
-    int z = k * gDimension[0] * gDimension[1];
-    mData[x+y+z] = val;
+    int y = j * resolution.x;
+    int z = k * resolution.x * resolution.y;
+    mData.at(x+y+z) = val;
 }
 
 vec3 MACGridData::worldToLocal(const vec3& pt) const
@@ -130,8 +149,8 @@ float MACGridData::interpolate(const vec3& pt)
     
     // 2: Are boundary cells supposed to be type SOLID? If so why, is cell 0 2 1 not being extrapolated to correctly?
     
-    float v000 = (*this)(i >= gDimension[0]? gDimension[0] - 1 : i, j >= gDimension[1]? gDimension[1]    -1: j, k >= gDimension[2]? gDimension[2] -1 : k);
-    float v010 = (*this)(i >= gDimension[0]? gDimension[0] - 1 : i, j+1 >= gDimension[1]? gDimension[1]  -1: j + 1,k >= gDimension[2]? gDimension[2]-1 : k);
+    float v000 = (*this)(i >= resolution.x? resolution.x - 1 : i, j >= resolution.y? resolution.y    -1: j, k >= resolution.z? resolution.z -1 : k);
+    float v010 = (*this)(i >= resolution.x? resolution.x - 1 : i, j+1 >= resolution.y? resolution.y  -1: j + 1,k >= resolution.z? resolution.z-1 : k);
     float lerp1 = LERP(v000, v010, fract_party);
 #ifdef DEBUG
     std::cout << "[thanda] at idx " << i << " "<< j << " "<< k << " : "<< (*this)(i,j,k) << std::endl;
@@ -139,8 +158,8 @@ float MACGridData::interpolate(const vec3& pt)
     std::cout << "[thanda] lerp1 " << lerp1 << std::endl;
 #endif
 
-    float v100 = (*this)(i+1 >= gDimension[0]? gDimension[0] -1 : i+1, j >= gDimension[1]? gDimension[1] -1: j, k >= gDimension[2]? gDimension[2] -1: k);
-    float v110 = (*this)(i+1 >= gDimension[0]? gDimension[0] -1 : i+1,j+1 >= gDimension[1]? gDimension[1]-1: j + 1,k >= gDimension[2]? gDimension[2] -1: k);
+    float v100 = (*this)(i+1 >= resolution.x? resolution.x -1 : i+1, j >= resolution.y? resolution.y -1: j, k >= resolution.z? resolution.z -1: k);
+    float v110 = (*this)(i+1 >= resolution.x? resolution.x -1 : i+1,j+1 >= resolution.y? resolution.y-1: j + 1,k >= resolution.z? resolution.z -1: k);
     float lerp2 = LERP(v100, v110, fract_party);
 #ifdef DEBUG
     std::cout << "[thanda] at idx " << i+1 << " "<< j << " "<< k << " : "<< (*this)(i+1,j,k) << std::endl;
@@ -148,8 +167,8 @@ float MACGridData::interpolate(const vec3& pt)
     std::cout << "[thanda] lerp2 " << lerp2 << std::endl;
 #endif
     
-    float v001 = (*this)(i >= gDimension[0]? gDimension[0] -1 : i, j >= gDimension[1]? gDimension[1]     -1: j, k+1 >= gDimension[2] ? gDimension[2] -1: k + 1);
-    float v011 = (*this)(i >= gDimension[0]? gDimension[0] -1 : i,j+1 >= gDimension[1]? gDimension[1]-1: j + 1,k+1 >= gDimension[2] ? gDimension[2] -1: k+1);
+    float v001 = (*this)(i >= resolution.x? resolution.x -1 : i, j >= resolution.y? resolution.y     -1: j, k+1 >= resolution.z ? resolution.z -1: k + 1);
+    float v011 = (*this)(i >= resolution.x? resolution.x -1 : i,j+1 >= resolution.y? resolution.y-1: j + 1,k+1 >= resolution.z ? resolution.z -1: k+1);
     float lerp3 = LERP(v001, v011, fract_party);
 #ifdef DEBUG
     std::cout << "[thanda] at idx " << i << " "<< j << " "<< k+1<< " : "<< (*this)(i,j,k+1) << std::endl;
@@ -157,8 +176,8 @@ float MACGridData::interpolate(const vec3& pt)
     std::cout << "[thanda] lerp3 " << lerp3 << std::endl;
 #endif
     
-    float v101 = (*this)(i+1 >= gDimension[0]? gDimension[0] -1 : i+1,j >= gDimension[1]? gDimension[1]    -1: j,k+1 >= gDimension[2] ? gDimension[2] -1: k + 1);
-    float v111 = (*this)(i+1 >= gDimension[0]? gDimension[0] -1 : i+1,j+1 >= gDimension[1]? gDimension[1]  -1: j + 1,k+1 >= gDimension[2] ? gDimension[2]-1 : k + 1);
+    float v101 = (*this)(i+1 >= resolution.x? resolution.x -1 : i+1,j >= resolution.y? resolution.y    -1: j,k+1 >= resolution.z ? resolution.z -1: k + 1);
+    float v111 = (*this)(i+1 >= resolution.x? resolution.x -1 : i+1,j+1 >= resolution.y? resolution.y  -1: j + 1,k+1 >= resolution.z ? resolution.z-1 : k + 1);
     float lerp4 = LERP(v101, v111, fract_party);
 #ifdef DEBUG
     std::cout << "[thanda] at idx " << i+1 << " "<< j << " "<< k+1 << " : "<< (*this)(i+1,j,k+1) << std::endl;
@@ -179,42 +198,36 @@ float MACGridData::interpolate(const vec3& pt)
     return ret;
 }
 
-MACGridDataX::MACGridDataX()
-{
-}
-
 void MACGridDataX::MACGridDataInitialize(){
 //    MACGridData::MACGridDataInitialize();
-    containerBounds[0] = CellSize * (gDimension[0] + 1);
-    containerBounds[1] = CellSize * gDimension[1];
-    containerBounds[2] = CellSize * gDimension[2];
-    data.resize((gDimension[0] + 1) * gDimension[1] * gDimension[2]);
+
+    data.resize((resolution.x + 1) * resolution.y * resolution.z);
     std::fill(data.begin(), data.end(), 0.f);
 }
 
-float& MACGridDataX::operator ()(int i, int j, int k){
+//float& MACGridDataX::operator ()(int i, int j, int k){
 
-    float ret = 0.f;
-    if (i < 0 || i > gDimension[0]) return ret;
-    if (j < 0) {
-        j = 0;
-    }
-    if (k < 0){
-        k = 0;
-    }
-    if (j > gDimension[1]){
-        j = gDimension[1] - 1;
-    }
-    if (k > gDimension[2]){
-        k = gDimension[2] - 1;
-    }
+//    float ret = 0.f;
+//    if (i < 0 || i > resolution.x) return ret;
+//    if (j < 0) {
+//        j = 0;
+//    }
+//    if (k < 0){
+//        k = 0;
+//    }
+//    if (j > resolution.y){
+//        j = resolution.y - 1;
+//    }
+//    if (k > resolution.z){
+//        k = resolution.z - 1;
+//    }
 
-    int x = i;
-    int y = j * (gDimension[0] + 1);
-    int z = k * (gDimension[0] + 1) * gDimension[1];
+//    int x = i;
+//    int y = j * (resolution.x);
+//    int z = k * (resolution.x) * resolution.y;
 
-    return data[x+y+z];
-}
+//    return data.at(x+y+z);
+//}
 
 vec3 MACGridDataX::worldToLocal(const vec3 &pt) const {
     vec3 ret;
@@ -224,55 +237,51 @@ vec3 MACGridDataX::worldToLocal(const vec3 &pt) const {
     return ret;
 }
 
-void MACGridDataX::setCell(int &i, int &j, int &k, const float val){
-    int x = i;
-    int y = j * (gDimension[0] + 1);
-    int z = k * (gDimension[0] + 1) * gDimension[1];
-    data[x+y+z] = val;
-}
+//void MACGridDataX::setCell(int &i, int &j, int &k, const float val){
+//    int x = i;
+//    int y = j * (resolution.x + 1);
+//    int z = k * (resolution.x + 1) * resolution.y;
+//    data.at(x+y+z) = val;
+//}
 
-void MACGridDataX::setCellAdd(const int &i, const int &j, const int &k, const float val){
-    int x = i;
-    int y = j * (gDimension[0] + 1);
-    int z = k * (gDimension[0] + 1) * gDimension[1];
-    data[x+y+z] += val;
-}
-
-MACGridDataY::MACGridDataY()
-{
-}
+//void MACGridDataX::setCellAdd(const int &i, const int &j, const int &k, const float val){
+//    int x = i;
+//    int y = j * (resolution.x + 1);
+//    int z = k * (resolution.x + 1) * resolution.y;
+//    data.at(x+y+z) += val;
+//}
 
 void MACGridDataY::MACGridDataInitialize(){
-    containerBounds[0] = CellSize * (gDimension[0]);
-    containerBounds[1] = CellSize * (gDimension[1] + 1);
-    containerBounds[2] = CellSize * gDimension[2];
-    data.resize((gDimension[0]) * (gDimension[1] + 1) * gDimension[2]);
+    containerBounds[0] = CellSize * (resolution.x);
+    containerBounds[1] = CellSize * (resolution.y + 1);
+    containerBounds[2] = CellSize * resolution.z;
+    data.resize((resolution.x) * (resolution.y + 1) * resolution.z);
     std::fill(data.begin(), data.end(), 0.f);
 }
 
-float& MACGridDataY::operator ()(int i, int j, int k){
+//float& MACGridDataY::operator ()(int i, int j, int k){
 
-    float ret = 0.f;
-    if (j < 0 || j > gDimension[1]) return ret;
-    if (i < 0) {
-        i = 0;
-    }
-    if (k < 0){
-        k = 0;
-    }
-    if (i > gDimension[0]){
-        i = gDimension[0] - 1;
-    }
-    if (k > gDimension[2]){
-        k = gDimension[2] - 1;
-    }
+//    float ret = 0.f;
+//    if (j < 0 || j > resolution.y) return ret;
+//    if (i < 0) {
+//        i = 0;
+//    }
+//    if (k < 0){
+//        k = 0;
+//    }
+//    if (i > resolution.x){
+//        i = resolution.x - 1;
+//    }
+//    if (k > resolution.z){
+//        k = resolution.z - 1;
+//    }
 
-    int x = i;
-    int y = j * (gDimension[0]);
-    int z = k * (gDimension[0]) * (gDimension[1]+1);
+//    int x = i;
+//    int y = j * (resolution.x);
+//    int z = k * (resolution.x) * (resolution.y+1);
 
-    return data[x+y+z];
-}
+//    return data.at(x+y+z);
+//}
 
 vec3 MACGridDataY::worldToLocal(const vec3 &pt) const {
     vec3 ret;
@@ -282,58 +291,54 @@ vec3 MACGridDataY::worldToLocal(const vec3 &pt) const {
     return ret;
 }
 
-void MACGridDataY::setCell(int &i, int &j, int &k, const float val){
-    int x = i;
-    int y = j * (gDimension[0]);
-    int z = k * (gDimension[0]) * (gDimension[1]+1);
+//void MACGridDataY::setCell(int &i, int &j, int &k, const float val){
+//    int x = i;
+//    int y = j * (resolution.x);
+//    int z = k * (resolution.x) * (resolution.y+1);
 
-    if(x+y+z < data.size()-1 && x+y+z >= 0)
-        data.at(x+y+z) = val;
-}
+//    if(x+y+z < data.size()-1 && x+y+z >= 0)
+//        data.at(x+y+z) = val;
+//}
 
-void MACGridDataY::setCellAdd(const int &i, const int &j, const int &k, const float val){
-    int x = i;
-    int y = j * (gDimension[0]);
-    int z = k * (gDimension[0]) * (gDimension[1]+1);
+//void MACGridDataY::setCellAdd(const int &i, const int &j, const int &k, const float val){
+//    int x = i;
+//    int y = j * (resolution.x);
+//    int z = k * (resolution.x) * (resolution.y+1);
 
-    if(x+y+z < data.size()-1 && x+y+z >= 0)
-        data.at(x+y+z) += val;
-}
-
-MACGridDataZ::MACGridDataZ()
-{
-}
+//    if(x+y+z < data.size()-1 && x+y+z >= 0)
+//        data.at(x+y+z) += val;
+//}
 
 void MACGridDataZ::MACGridDataInitialize(){
-    containerBounds[0] = CellSize * (gDimension[0]);
-    containerBounds[1] = CellSize * gDimension[1];
-    containerBounds[2] = CellSize * (gDimension[2] + 1);
-    data.resize((gDimension[0]) * gDimension[1] * (gDimension[2] + 1));
+    containerBounds[0] = CellSize * (resolution.x);
+    containerBounds[1] = CellSize * resolution.y;
+    containerBounds[2] = CellSize * (resolution.z + 1);
+    data.resize((resolution.x) * resolution.y * (resolution.z + 1));
     std::fill(data.begin(), data.end(), 0.f);
 }
 
-float& MACGridDataZ::operator ()(int i, int j, int k){
-    float ret = 0.f;
-    if (k < 0 || k > gDimension[2]) return ret;
-    if (j < 0) {
-        j = 0;
-    }
-    if (i < 0){
-        i = 0;
-    }
-    if (j > gDimension[1]){
-        j = gDimension[1] - 1;
-    }
-    if (i > gDimension[0]){
-        i = gDimension[0] - 1;
-    }
+//float& MACGridDataZ::operator ()(int i, int j, int k){
+//    float ret = 0.f;
+//    if (k < 0 || k > resolution.z) return ret;
+//    if (j < 0) {
+//        j = 0;
+//    }
+//    if (i < 0){
+//        i = 0;
+//    }
+//    if (j > resolution.y){
+//        j = resolution.y - 1;
+//    }
+//    if (i > resolution.x){
+//        i = resolution.x - 1;
+//    }
 
-    int x = i;
-    int y = j * (gDimension[0]);
-    int z = k * (gDimension[0]) * (gDimension[1]);
+//    int x = i;
+//    int y = j * (resolution.x);
+//    int z = k * (resolution.x) * (resolution.y);
 
-    return data[x+y+z];
-}
+//    return data.at(x+y+z);
+//}
 
 vec3 MACGridDataZ::worldToLocal(const vec3 &pt) const {
     vec3 ret;
@@ -343,15 +348,15 @@ vec3 MACGridDataZ::worldToLocal(const vec3 &pt) const {
     return ret;
 }
 
-void MACGridDataZ::setCell(int &i, int &j, int &k, const float val){
-    int x = i;
-    int y = j * (gDimension[0]);
-    int z = k * (gDimension[0]) * (gDimension[1]);
-    data[x+y+z] = val;
-}
-void MACGridDataZ::setCellAdd(const int &i, const int &j, const int &k, const float val){
-    int x = i;
-    int y = j * (gDimension[0]);
-    int z = k * (gDimension[0]) * (gDimension[1]);
-    data[x+y+z] += val;
-}
+//void MACGridDataZ::setCell(int &i, int &j, int &k, const float val){
+//    int x = i;
+//    int y = j * (resolution.x);
+//    int z = k * (resolution.x) * (resolution.y);
+//    data.at(x+y+z) = val;
+//}
+//void MACGridDataZ::setCellAdd(const int &i, const int &j, const int &k, const float val){
+//    int x = i;
+//    int y = j * (resolution.x);
+//    int z = k * (resolution.x) * (resolution.y);
+//    data.at(x+y+z) += val;
+//}

@@ -9,5 +9,10 @@
         "boundY" : 4,
         "boundZ" : 4
 	},
-	"particleSeparation" : 0.1
+	"particleSeparation" : 0.1,
+	"grid" : {
+		"boundX" : 5,
+		"boundY" : 5, 
+		"boundZ" : 5
+	}
 }

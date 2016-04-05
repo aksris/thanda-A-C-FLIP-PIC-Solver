@@ -6,6 +6,7 @@
 #define EPSILON 0.00001f
 
 #include "fluidSolver.hpp"
+#include "../scene/scene.hpp"
 
 Particle::Particle(){
     pos = glm::vec3(0.f, 0.f, 0.f);
@@ -22,17 +23,38 @@ Particle::Particle(){
     density = 1.f;
 }
 
-MACGrid::MACGrid(){
+MACGrid::MACGrid(const ivec3& resolution, const vec3& containerBounds,float cellSize){
+    vel_U = new MACGridDataX(ivec3(resolution.x + 1, resolution.y, resolution.z), containerBounds, cellSize);
+    vel_V = new MACGridDataY(ivec3(resolution.x, resolution.y+1, resolution.z), containerBounds, cellSize);
+    vel_W = new MACGridDataZ(ivec3(resolution.x, resolution.y, resolution.z+1), containerBounds, cellSize);
+
+    save_kernel_wt_U = new MACGridDataX(ivec3(resolution.x + 1, resolution.y, resolution.z), containerBounds, cellSize);
+    save_kernel_wt_V = new MACGridDataY(ivec3(resolution.x, resolution.y+1, resolution.z), containerBounds, cellSize);
+    save_kernel_wt_W = new MACGridDataZ(ivec3(resolution.x, resolution.y, resolution.z+1), containerBounds, cellSize);
+
+    P = new MACGridData(ivec3(resolution.x, resolution.y, resolution.z), containerBounds, cellSize);
+}
+
+MACGrid::~MACGrid(){
+    delete vel_U;
+    delete vel_V;
+    delete vel_W;
+
+    delete save_kernel_wt_U;
+    delete save_kernel_wt_V;
+    delete save_kernel_wt_W;
+
+    delete P;
 }
 
 void MACGrid::initialize(){
-    vel_U.MACGridDataInitialize();
-    vel_V.MACGridDataInitialize();
-    vel_W.MACGridDataInitialize();
-    P.MACGridDataInitialize();
-    save_kernel_wt_U.MACGridDataInitialize();
-    save_kernel_wt_V.MACGridDataInitialize();
-    save_kernel_wt_W.MACGridDataInitialize();
+    vel_U->MACGridDataInitialize();
+    vel_V->MACGridDataInitialize();
+    vel_W->MACGridDataInitialize();
+    P->MACGridDataInitialize();
+    save_kernel_wt_U->MACGridDataInitialize();
+    save_kernel_wt_V->MACGridDataInitialize();
+    save_kernel_wt_W->MACGridDataInitialize();
 }
 
 MACGrid& MACGrid::operator =(const MACGrid& val){
@@ -40,17 +62,17 @@ MACGrid& MACGrid::operator =(const MACGrid& val){
     {
         return *this;
     }
-    vel_U.data = val.vel_U.data;
-    vel_U.mData = val.vel_U.mData;
+    vel_U->data = val.vel_U->data;
+    vel_U->mData = val.vel_U->mData;
 
-    vel_V.data = val.vel_V.data;
-    vel_V.mData = val.vel_V.mData;
+    vel_V->data = val.vel_V->data;
+    vel_V->mData = val.vel_V->mData;
 
-    vel_W.data = val.vel_W.data;
-    vel_W.mData = val.vel_W.mData;
+    vel_W->data = val.vel_W->data;
+    vel_W->mData = val.vel_W->mData;
 
-    P.data = val.P.data;
-    P.mData = val.P.mData;
+    P->data = val.P->data;
+    P->mData = val.P->mData;
 
     save_kernel_wt_U = val.save_kernel_wt_U;
     save_kernel_wt_V = val.save_kernel_wt_V;
@@ -58,10 +80,17 @@ MACGrid& MACGrid::operator =(const MACGrid& val){
     return *this;
 }
 
-FluidSolver::FluidSolver(){
+FluidSolver::FluidSolver(const ivec3& resolution, const vec3& containerBounds){
     LastUsedParticle = 0;
     MaxParticles = 200000;
     delta = (1.f/24);
+
+    this->resolution = resolution;
+    this->containerBounds = containerBounds;
+    this->cellSize = containerBounds.x/resolution.x;
+
+    grid = new MACGrid(this->resolution, this->containerBounds, this->cellSize);
+    tmp = new MACGrid(this->resolution, this->containerBounds, this->cellSize);
 }
 
 int FluidSolver::findUnusedParticles(){
@@ -87,13 +116,12 @@ void FluidSolver::sortParticles(){
     std::sort(&ParticlesContainer[0], &ParticlesContainer[MaxParticles]);
 }
 
-void FluidSolver::constructMACGrid(glm::vec3 containerBoundsOri){
-    containerBounds = containerBoundsOri;
+void FluidSolver::constructMACGrid(const Scene& scene){
+    resolution = scene.resolution;
+    containerBounds = scene.containerBounds;
 
-    num_cells = (containerBounds.x * containerBounds.y * containerBounds.z);
-    grid.initialize();
-    i_size = containerBounds.x;
-    j_size = containerBounds.y;
+    num_cells = (resolution.x * resolution.y * resolution.z);
+//    grid->initialize();
 }
 
 void FluidSolver::initMACGrid(Particle &p){
@@ -123,7 +151,7 @@ void FluidSolver::genParticles(float particle_separation, float boundx, float bo
             for(int k = 1; k < (int)boundz; k++){
                 iter=0;
                 while(iter < 8){
-//                    p.pos = vec3(1.8,1.8,1.6);
+//                    P->pos = vec3(1.8,1.8,1.6);
                     p.pos = vec3(rand(i,i+1), rand(j,j+1), rand(k, k+1));
                     p.speed = vec3(0.f, 0.f, 0.f);
                     p.gridIdx = vec3(i,j,k);
@@ -141,27 +169,27 @@ void FluidSolver::calculateDensity(Particle &p){
 }
 
 void FluidSolver::FlipSolve(){
-    int x = grid.P.containerBounds.x;
-    int y = grid.P.containerBounds.y;
-    int z = grid.P.containerBounds.z;
+    int x = grid->P->resolution.x;
+    int y = grid->P->resolution.y;
+    int z = grid->P->resolution.z;
     for(int i = 0; i < x + 1; ++i){
         for(int j = 0; j < y; ++j){
             for(int k = 0; k < z; ++k){
-                tmp.vel_U.setCell(i, j, k, grid.vel_U(i, j, k) - tmp.vel_U(i, j, k));
+                tmp->vel_U->setCell(i, j, k, (*grid->vel_U)(i, j, k) - (*tmp->vel_U)(i, j, k));
             }
         }
     }
     for(int i = 0; i < x; ++i){
         for(int j = 0; j < y + 1; ++j){
             for(int k = 0; k < z; ++k){
-                tmp.vel_V.setCell(i, j, k, grid.vel_V(i, j, k) - tmp.vel_V(i, j, k)) ;
+                tmp->vel_V->setCell(i, j, k, (*grid->vel_V)(i, j, k) - (*tmp->vel_V)(i, j, k)) ;
             }
         }
     }
     for(int i = 0; i < x; ++i){
         for(int j = 0; j < y; ++j){
             for(int k = 0; k < z + 1; ++k){
-                tmp.vel_W.setCell(i, j, k, grid.vel_W(i, j, k) - tmp.vel_W(i, j, k));
+                tmp->vel_W->setCell(i, j, k, (*grid->vel_W)(i, j, k) - (*tmp->vel_W)(i, j, k));
             }
         }
     }
@@ -170,9 +198,9 @@ void FluidSolver::FlipSolve(){
     //for every particle, set the change in velocity + current particle velocity
     //interpolate
     for(int i = 0; i < particle_save.size(); i++){
-        particle_save.at(i).speed.x = tmp.vel_U.interpolate(particle_save.at(i).pos);
-        particle_save.at(i).speed.y = tmp.vel_V.interpolate(particle_save.at(i).pos);
-        particle_save.at(i).speed.z = tmp.vel_W.interpolate(particle_save.at(i).pos);
+        particle_save.at(i).speed.x = tmp->vel_U->interpolate(particle_save.at(i).pos);
+        particle_save.at(i).speed.y = tmp->vel_V->interpolate(particle_save.at(i).pos);
+        particle_save.at(i).speed.z = tmp->vel_W->interpolate(particle_save.at(i).pos);
     }
 
 }
@@ -182,9 +210,9 @@ void FluidSolver::PicSolve(){
     //for every particle, set the new grid velocity
     //interpolate
     for(int i = 0; i < particle_save_pic.size(); i++){
-        particle_save_pic.at(i).speed.x = grid.vel_U.interpolate(particle_save_pic.at(i).pos);
-        particle_save_pic.at(i).speed.y = grid.vel_V.interpolate(particle_save_pic.at(i).pos);
-        particle_save_pic.at(i).speed.z = grid.vel_W.interpolate(particle_save_pic.at(i).pos);
+        particle_save_pic.at(i).speed.x = grid->vel_U->interpolate(particle_save_pic.at(i).pos);
+        particle_save_pic.at(i).speed.y = grid->vel_V->interpolate(particle_save_pic.at(i).pos);
+        particle_save_pic.at(i).speed.z = grid->vel_W->interpolate(particle_save_pic.at(i).pos);
     }
 
 }
@@ -230,11 +258,11 @@ float StiffKernel(const vec3& r, const float& cell_width){
 
 void FluidSolver::CalculateGravityToCell(float delta){
     vec3 speed;
-    for (int i = 0; i < 5; i++){
-        for (int j = 0; j < 5; j++){
-            for (int k = 0; k < 5; k++){
+    for (int i = 0; i < resolution.x; i++){
+        for (int j = 0; j < resolution.y; j++){
+            for (int k = 0; k < resolution.x; k++){
                 speed = glm::vec3(0.f, -9.8f , 0.f) * delta;
-                grid.vel_V.setCellAdd(i,j,k, speed.y);
+                grid->vel_V->setCellAdd(i,j,k, speed.y);
             }
         }
     }
@@ -243,17 +271,17 @@ void FluidSolver::CalculateGravityToCell(float delta){
 void FluidSolver::storeParticleVelocityToGrid(){
     //for all the grid indices, calculate vel_u, vel_v, vel_w
     vec3 index, pos, r; int x,y,z;
-    float h = 1.f, weight = 0.f;
+    float h = this->grid->CellSize, weight = 0.f;
     float fract_partx,fract_party,fract_partz;
     for(int i = 0; i < ParticlesContainer.size(); ++i){
         vec3 w_pos = ParticlesContainer.at(i).pos;
         index = ParticlesContainer.at(i).gridIdx;
         x = index.x, y = index.y, z = index.z;
 
-        grid.P.setCellMark(x, y, z, FLUID, true);
+        grid->P->setCellMark(x, y, z, FLUID, true);
 
         //################## X direction #############################################
-        pos = grid.vel_U.worldToLocal(w_pos);
+        pos = grid->vel_U->worldToLocal(w_pos);
         x = pos.x, y = pos.y, z = pos.z;
         fract_partx = (pos[0] - x);
         fract_party = (pos[1] - y);
@@ -261,39 +289,39 @@ void FluidSolver::storeParticleVelocityToGrid(){
 
         //splatting to all neighbors that are/will be involved in trilerp
         weight = (1-fract_partx)*(1-fract_party)*(1-fract_partz);
-        grid.vel_U.setCellAdd(x, y, z, ParticlesContainer.at(i).speed.y * weight);
-        grid.save_kernel_wt_U.setCellAdd(x, y, z, weight);
+        grid->vel_U->setCellAdd(x, y, z, ParticlesContainer.at(i).speed.x * weight);
+        grid->save_kernel_wt_U->setCellAdd(x, y, z, weight);
 
         weight = (fract_partx)*(1-fract_party)*(1-fract_partz);
-        grid.vel_U.setCellAdd(x+1, y, z, ParticlesContainer.at(i).speed.y * weight);
-        grid.save_kernel_wt_U.setCellAdd(x+1, y, z, weight);
+        grid->vel_U->setCellAdd(x+1, y, z, ParticlesContainer.at(i).speed.x * weight);
+        grid->save_kernel_wt_U->setCellAdd(x+1, y, z, weight);
 
         weight = (fract_partx)*(fract_party)*(1-fract_partz);
-        grid.vel_U.setCellAdd(x+1, y+1, z, ParticlesContainer.at(i).speed.y * weight);
-        grid.save_kernel_wt_U.setCellAdd(x+1, y+1, z, weight);
+        grid->vel_U->setCellAdd(x+1, y+1, z, ParticlesContainer.at(i).speed.x * weight);
+        grid->save_kernel_wt_U->setCellAdd(x+1, y+1, z, weight);
 
         weight = (1-fract_partx)*(fract_party)*(1-fract_partz);
-        grid.vel_U.setCellAdd(x, y+1, z, ParticlesContainer.at(i).speed.y * weight);
-        grid.save_kernel_wt_U.setCellAdd(x, y+1, z, weight);
+        grid->vel_U->setCellAdd(x, y+1, z, ParticlesContainer.at(i).speed.x * weight);
+        grid->save_kernel_wt_U->setCellAdd(x, y+1, z, weight);
 
         weight = (1-fract_partx)*(fract_party)*(fract_partz);
-        grid.vel_U.setCellAdd(x, y+1, z+1, ParticlesContainer.at(i).speed.y * weight);
-        grid.save_kernel_wt_U.setCellAdd(x, y+1, z+1, weight);
+        grid->vel_U->setCellAdd(x, y+1, z+1, ParticlesContainer.at(i).speed.x * weight);
+        grid->save_kernel_wt_U->setCellAdd(x, y+1, z+1, weight);
 
         weight = (1-fract_partx)*(1-fract_party)*(fract_partz);
-        grid.vel_U.setCellAdd(x, y, z+1, ParticlesContainer.at(i).speed.y * weight );
-        grid.save_kernel_wt_U.setCellAdd(x, y, z+1, weight);
+        grid->vel_U->setCellAdd(x, y, z+1, ParticlesContainer.at(i).speed.x * weight );
+        grid->save_kernel_wt_U->setCellAdd(x, y, z+1, weight);
 
         weight = (fract_partx)*(1-fract_party)*(fract_partz);
-        grid.vel_U.setCellAdd(x+1, y, z+1, ParticlesContainer.at(i).speed.y * weight);
-        grid.save_kernel_wt_U.setCellAdd(x+1, y, z+1, weight);
+        grid->vel_U->setCellAdd(x+1, y, z+1, ParticlesContainer.at(i).speed.x * weight);
+        grid->save_kernel_wt_U->setCellAdd(x+1, y, z+1, weight);
 
         weight = (fract_partx)*(fract_party)*(fract_partz);
-        grid.vel_U.setCellAdd(x+1, y+1, z+1, ParticlesContainer.at(i).speed.y * weight);
-        grid.save_kernel_wt_U.setCellAdd(x+1, y+1, z+1, weight);
+        grid->vel_U->setCellAdd(x+1, y+1, z+1, ParticlesContainer.at(i).speed.x * weight);
+        grid->save_kernel_wt_U->setCellAdd(x+1, y+1, z+1, weight);
 
         //######################## y direction splatting #####################################
-        pos = grid.vel_V.worldToLocal(w_pos);
+        pos = grid->vel_V->worldToLocal(w_pos);
         x = pos.x, y = pos.y, z = pos.z;
         fract_partx = (pos[0] - x);
         fract_party = (pos[1] - y);
@@ -301,39 +329,39 @@ void FluidSolver::storeParticleVelocityToGrid(){
 
         //splatting to all neighbors that are/will be involved in trilerp
         weight = (1-fract_partx)*(1-fract_party)*(1-fract_partz);
-        grid.vel_V.setCellAdd(x, y, z, ParticlesContainer.at(i).speed.y * weight);
-        grid.save_kernel_wt_V.setCellAdd(x, y, z, weight);
+        grid->vel_V->setCellAdd(x, y, z, ParticlesContainer.at(i).speed.y * weight);
+        grid->save_kernel_wt_V->setCellAdd(x, y, z, weight);
 
         weight = (fract_partx)*(1-fract_party)*(1-fract_partz);
-        grid.vel_V.setCellAdd(x+1, y, z, ParticlesContainer.at(i).speed.y * weight);
-        grid.save_kernel_wt_V.setCellAdd(x+1, y, z, weight);
+        grid->vel_V->setCellAdd(x+1, y, z, ParticlesContainer.at(i).speed.y * weight);
+        grid->save_kernel_wt_V->setCellAdd(x+1, y, z, weight);
 
         weight = (fract_partx)*(fract_party)*(1-fract_partz);
-        grid.vel_V.setCellAdd(x+1, y+1, z, ParticlesContainer.at(i).speed.y * weight);
-        grid.save_kernel_wt_V.setCellAdd(x+1, y+1, z, weight);
+        grid->vel_V->setCellAdd(x+1, y+1, z, ParticlesContainer.at(i).speed.y * weight);
+        grid->save_kernel_wt_V->setCellAdd(x+1, y+1, z, weight);
 
         weight = (1-fract_partx)*(fract_party)*(1-fract_partz);
-        grid.vel_V.setCellAdd(x, y+1, z, ParticlesContainer.at(i).speed.y * weight);
-        grid.save_kernel_wt_V.setCellAdd(x, y+1, z, weight);
+        grid->vel_V->setCellAdd(x, y+1, z, ParticlesContainer.at(i).speed.y * weight);
+        grid->save_kernel_wt_V->setCellAdd(x, y+1, z, weight);
 
         weight = (1-fract_partx)*(fract_party)*(fract_partz);
-        grid.vel_V.setCellAdd(x, y+1, z+1, ParticlesContainer.at(i).speed.y * weight);
-        grid.save_kernel_wt_V.setCellAdd(x, y+1, z+1, weight);
+        grid->vel_V->setCellAdd(x, y+1, z+1, ParticlesContainer.at(i).speed.y * weight);
+        grid->save_kernel_wt_V->setCellAdd(x, y+1, z+1, weight);
 
         weight = (1-fract_partx)*(1-fract_party)*(fract_partz);
-        grid.vel_V.setCellAdd(x, y, z+1, ParticlesContainer.at(i).speed.y * weight );
-        grid.save_kernel_wt_V.setCellAdd(x, y, z+1, weight);
+        grid->vel_V->setCellAdd(x, y, z+1, ParticlesContainer.at(i).speed.y * weight );
+        grid->save_kernel_wt_V->setCellAdd(x, y, z+1, weight);
 
         weight = (fract_partx)*(1-fract_party)*(fract_partz);
-        grid.vel_V.setCellAdd(x+1, y, z+1, ParticlesContainer.at(i).speed.y * weight);
-        grid.save_kernel_wt_V.setCellAdd(x+1, y, z+1, weight);
+        grid->vel_V->setCellAdd(x+1, y, z+1, ParticlesContainer.at(i).speed.y * weight);
+        grid->save_kernel_wt_V->setCellAdd(x+1, y, z+1, weight);
 
         weight = (fract_partx)*(fract_party)*(fract_partz);
-        grid.vel_V.setCellAdd(x+1, y+1, z+1, ParticlesContainer.at(i).speed.y * weight);
-        grid.save_kernel_wt_V.setCellAdd(x+1, y+1, z+1, weight);
+        grid->vel_V->setCellAdd(x+1, y+1, z+1, ParticlesContainer.at(i).speed.y * weight);
+        grid->save_kernel_wt_V->setCellAdd(x+1, y+1, z+1, weight);
 
         //############### z direction #######################################################
-        pos = grid.vel_W.worldToLocal(w_pos);
+        pos = grid->vel_W->worldToLocal(w_pos);
         x = pos.x, y = pos.y, z = pos.z;
         fract_partx = (pos[0] - x);
         fract_party = (pos[1] - y);
@@ -341,60 +369,60 @@ void FluidSolver::storeParticleVelocityToGrid(){
 
         //splatting to all neighbors that are/will be involved in trilerp
         weight = (1-fract_partx)*(1-fract_party)*(1-fract_partz);
-        grid.vel_W.setCellAdd(x, y, z, ParticlesContainer.at(i).speed.y * weight);
-        grid.save_kernel_wt_W.setCellAdd(x, y, z, weight);
+        grid->vel_W->setCellAdd(x, y, z, ParticlesContainer.at(i).speed.z * weight);
+        grid->save_kernel_wt_W->setCellAdd(x, y, z, weight);
 
         weight = (fract_partx)*(1-fract_party)*(1-fract_partz);
-        grid.vel_W.setCellAdd(x+1, y, z, ParticlesContainer.at(i).speed.y * weight);
-        grid.save_kernel_wt_W.setCellAdd(x+1, y, z, weight);
+        grid->vel_W->setCellAdd(x+1, y, z, ParticlesContainer.at(i).speed.z * weight);
+        grid->save_kernel_wt_W->setCellAdd(x+1, y, z, weight);
 
         weight = (fract_partx)*(fract_party)*(1-fract_partz);
-        grid.vel_W.setCellAdd(x+1, y+1, z, ParticlesContainer.at(i).speed.y * weight);
-        grid.save_kernel_wt_W.setCellAdd(x+1, y+1, z, weight);
+        grid->vel_W->setCellAdd(x+1, y+1, z, ParticlesContainer.at(i).speed.z * weight);
+        grid->save_kernel_wt_W->setCellAdd(x+1, y+1, z, weight);
 
         weight = (1-fract_partx)*(fract_party)*(1-fract_partz);
-        grid.vel_W.setCellAdd(x, y+1, z, ParticlesContainer.at(i).speed.y * weight);
-        grid.save_kernel_wt_W.setCellAdd(x, y+1, z, weight);
+        grid->vel_W->setCellAdd(x, y+1, z, ParticlesContainer.at(i).speed.z * weight);
+        grid->save_kernel_wt_W->setCellAdd(x, y+1, z, weight);
 
         weight = (1-fract_partx)*(fract_party)*(fract_partz);
-        grid.vel_W.setCellAdd(x, y+1, z+1, ParticlesContainer.at(i).speed.y * weight);
-        grid.save_kernel_wt_W.setCellAdd(x, y+1, z+1, weight);
+        grid->vel_W->setCellAdd(x, y+1, z+1, ParticlesContainer.at(i).speed.z * weight);
+        grid->save_kernel_wt_W->setCellAdd(x, y+1, z+1, weight);
 
         weight = (1-fract_partx)*(1-fract_party)*(fract_partz);
-        grid.vel_W.setCellAdd(x, y, z+1, ParticlesContainer.at(i).speed.y * weight );
-        grid.save_kernel_wt_W.setCellAdd(x, y, z+1, weight);
+        grid->vel_W->setCellAdd(x, y, z+1, ParticlesContainer.at(i).speed.z * weight );
+        grid->save_kernel_wt_W->setCellAdd(x, y, z+1, weight);
 
         weight = (fract_partx)*(1-fract_party)*(fract_partz);
-        grid.vel_W.setCellAdd(x+1, y, z+1, ParticlesContainer.at(i).speed.y * weight);
-        grid.save_kernel_wt_W.setCellAdd(x+1, y, z+1, weight);
+        grid->vel_W->setCellAdd(x+1, y, z+1, ParticlesContainer.at(i).speed.z * weight);
+        grid->save_kernel_wt_W->setCellAdd(x+1, y, z+1, weight);
 
         weight = (fract_partx)*(fract_party)*(fract_partz);
-        grid.vel_W.setCellAdd(x+1, y+1, z+1, ParticlesContainer.at(i).speed.y * weight);
-        grid.save_kernel_wt_W.setCellAdd(x+1, y+1, z+1, weight);
+        grid->vel_W->setCellAdd(x+1, y+1, z+1, ParticlesContainer.at(i).speed.z * weight);
+        grid->save_kernel_wt_W->setCellAdd(x+1, y+1, z+1, weight);
 
     }
 
-    x = grid.P.containerBounds.x;
-    y = grid.P.containerBounds.y;
-    z = grid.P.containerBounds.z;
+    x = grid->P->resolution.x;
+    y = grid->P->resolution.y;
+    z = grid->P->resolution.z;
     for(int i = 0; i < x+1; ++i){
         for(int j = 0; j < y ; ++j){
             for(int k = 0; k < z; ++k){
-                grid.vel_U.setCell(i, j, k, grid.vel_U(i,j,k) / max(grid.save_kernel_wt_U(i,j,k), EPSILON));
+                grid->vel_U->setCell(i, j, k, (*grid->vel_U)(i,j,k) / max((*grid->save_kernel_wt_U)(i,j,k), EPSILON));
             }
         }
     }
     for(int i = 0; i < x; ++i){
         for(int j = 0; j < y + 1; ++j){
             for(int k = 0; k < z; ++k){
-                grid.vel_V.setCell(i, j, k, grid.vel_V(i,j,k) / max(grid.save_kernel_wt_V(i,j,k), EPSILON));
+                grid->vel_V->setCell(i, j, k, (*grid->vel_V)(i,j,k) / max((*grid->save_kernel_wt_V)(i,j,k), EPSILON));
             }
         }
     }
     for(int i = 0; i < x; ++i){
         for(int j = 0; j < y ; ++j){
             for(int k = 0; k < z+1; ++k){
-                grid.vel_W.setCell(i, j, k, grid.vel_W(i,j,k) / max(grid.save_kernel_wt_W(i,j,k), EPSILON));
+                grid->vel_W->setCell(i, j, k, (*grid->vel_W)(i,j,k) / max((*grid->save_kernel_wt_W)(i,j,k), EPSILON));
             }
         }
     }
@@ -403,9 +431,9 @@ void FluidSolver::storeParticleVelocityToGrid(){
 }
 
 void FluidSolver::initializeMarkerGrid(){
-    int x = grid.P.containerBounds.x;
-    int y = grid.P.containerBounds.y;
-    int z = grid.P.containerBounds.z;
+    int x = grid->P->resolution.x;
+    int y = grid->P->resolution.y;
+    int z = grid->P->resolution.z;
 
     //neighborhood of 0, based on distance
 
@@ -414,7 +442,7 @@ void FluidSolver::initializeMarkerGrid(){
             for(int k = 0; k < z; ++k){
                 if(i == 0 || i == x - 1 || j == 0 || j == y - 1 || k == 0 || k == z - 1)
                 {
-                    grid.P.setCellMark(i, j, k, SOLID, true);
+                    grid->P->setCellMark(i, j, k, SOLID, true);
                 }
             }
         }
@@ -424,54 +452,53 @@ void FluidSolver::initializeMarkerGrid(){
 
 void FluidSolver::insertCoefficient(int id, int i, int j, int k, double w, std::vector<Eigen::Triplet<double>> &coeffs, int n){
     n = 5;
-    int id1 = k * n * n + j * n + i;
+    int id1 = k * resolution.x * resolution.y + j * resolution.x + i;
     coeffs.push_back(Eigen::Triplet<double>(id, id1, w));
 }
 
 void FluidSolver::buildMatrixA(std::vector<Eigen::Triplet<double>>& coefficients, long n){
-    n = 5;
-    for(int i = 0; i < 5; ++i){
-        for(int j = 0; j < 5; ++j){
-            for(int k = 0; k < 5; ++k){
-                int id = k * n * n + j * n + i; //id for matrix
+    for(int i = 0; i < resolution.x; ++i){
+        for(int j = 0; j < resolution.y; ++j){
+            for(int k = 0; k < resolution.z; ++k){
+                int id = k * resolution.x * resolution.y + j * resolution.x + i; //id for matrix
                 int scale = 1;
-                if(grid.P.getCellMark(i,j,k) == FLUID){
+                if(grid->P->getCellMark(i,j,k) == FLUID){
                     //x
-                    if(i > 0 && grid.P.getCellMark(i-1,j,k) == FLUID){
+                    if(i > 0 && grid->P->getCellMark(i-1,j,k) == FLUID){
                         scale++;
                         insertCoefficient(id, i-1,j,k, -1, coefficients, n);
                     }
-                    if(i < n && grid.P.getCellMark(i+1,j,k) == FLUID){
+                    if(i < n && grid->P->getCellMark(i+1,j,k) == FLUID){
                         scale++;
                         insertCoefficient(id, i+1,j,k, -1, coefficients, n);
                     }
-                    else if(i < n && grid.P.getCellMark(i+1,j,k) == AIR){
+                    else if(i < n && grid->P->getCellMark(i+1,j,k) == AIR){
                         scale++;
                     }
 
                     //y
-                    if(j > 0 && grid.P.getCellMark(i,j-1,k) == FLUID){
+                    if(j > 0 && grid->P->getCellMark(i,j-1,k) == FLUID){
                         scale++;
                         insertCoefficient(id, i,j-1,k, -1, coefficients, n);
                     }
-                    if(j < n && grid.P.getCellMark(i,j+1,k) == FLUID){
+                    if(j < n && grid->P->getCellMark(i,j+1,k) == FLUID){
                         scale++;
                         insertCoefficient(id, i,j+1,k, -1, coefficients, n);
                     }
-                    else if(j < n && grid.P.getCellMark(i,j+1,k) == AIR){
+                    else if(j < n && grid->P->getCellMark(i,j+1,k) == AIR){
                         scale++;
                     }
 
                     //z
-                    if(k > 0 && grid.P.getCellMark(i,j,k-1) == FLUID){
+                    if(k > 0 && grid->P->getCellMark(i,j,k-1) == FLUID){
                         scale++;
                         insertCoefficient(id, i,j,k-1, -1, coefficients, n);
                     }
-                    if(k < n && grid.P.getCellMark(i,j,k+1) == FLUID){
+                    if(k < n && grid->P->getCellMark(i,j,k+1) == FLUID){
                         scale++;
                         insertCoefficient(id, i,j,k+1, -1, coefficients, n);
                     }
-                    else if(k < n && grid.P.getCellMark(i,j,k+1) == AIR){
+                    else if(k < n && grid->P->getCellMark(i,j,k+1) == AIR){
                         scale++;
                     }
                 }
@@ -484,15 +511,15 @@ void FluidSolver::buildMatrixA(std::vector<Eigen::Triplet<double>>& coefficients
 void FluidSolver::buildDivergences(Eigen::VectorXd& u, int n){
     float h = 1.f;
     int iter = 0;
-    for(int i = 0; i < 5; ++i){
-        for(int j = 0; j < 5; ++j){
-            for(int k = 0; k < 5; ++k){
-                double divergence = (grid.vel_U(i+1, j, k) -
-                                    grid.vel_U(i, j, k) +
-                                    grid.vel_V(i, j+1, k) -
-                                    grid.vel_V(i, j, k) +
-                                    grid.vel_W(i, j, k+1) -
-                                    grid.vel_W(i, j, k)
+    for(int i = 0; i < resolution.x; ++i){
+        for(int j = 0; j < resolution.y; ++j){
+            for(int k = 0; k < resolution.z; ++k){
+                double divergence = ((*grid->vel_U)(i+1, j, k) -
+                                    (*grid->vel_U)(i, j, k) +
+                                    (*grid->vel_V)(i, j+1, k) -
+                                    (*grid->vel_V)(i, j, k) +
+                                    (*grid->vel_W)(i, j, k+1) -
+                                    (*grid->vel_W)(i, j, k)
                                     ) / h;
 
                 u[iter++] = -divergence;
@@ -504,13 +531,13 @@ void FluidSolver::buildDivergences(Eigen::VectorXd& u, int n){
 void FluidSolver::fillPressureGrid(Eigen::VectorXd x, int n){
     int iter = 0;
     n = 5;
-    for(int i = 0; i < 5; ++i){
-        for(int j = 0; j < 5; ++j){
-            for(int k = 0; k < 5; ++k){
-                grid.P.setCell(i,j,k, x[iter++]);
+    for(int i = 0; i < resolution.x; ++i){
+        for(int j = 0; j < resolution.y; ++j){
+            for(int k = 0; k < resolution.z; ++k){
+                grid->P->setCell(i,j,k, x[iter++]);
 #ifdef DEBUG
-                if(grid.P.getCellMark(i,j,k) == FLUID){
-                    float x = grid.P(i,j,k);
+                if(grid->P->getCellMark(i,j,k) == FLUID){
+                    float x = (*grid->P)(i,j,k);
                     std::cout << "Pressure at "<< i << " "<< j << " " << k << ": "<<x<< std::endl;
                 }
 #endif
@@ -520,7 +547,7 @@ void FluidSolver::fillPressureGrid(Eigen::VectorXd x, int n){
 }
 
 void FluidSolver::ProjectPressure(){
-    int x = containerBounds.x, y = containerBounds.y, z = containerBounds.z;
+    int x = resolution.x, y = resolution.y, z = resolution.z;
     long m = x * y * z;
 
     std::vector<Eigen::Triplet<double>> coefficients;
@@ -542,30 +569,30 @@ void FluidSolver::ProjectPressure(){
 
 void FluidSolver::SubtractPressureGradient(){
     float density = 1000.f;
-    float dx = 1.f;
+    float dx = containerBounds.x/resolution.x;
     float scale = delta / (density * dx);
 
-    int x = grid.P.containerBounds.x;
-    int y = grid.P.containerBounds.y;
-    int z = grid.P.containerBounds.z;
+    int x = resolution.x;
+    int y = resolution.y;
+    int z = resolution.z;
 
     //loop over i,j,k
     //update vel_U
     for(int i = 0; i < x+1; ++i){
         for(int j = 0; j < y; ++j){
             for(int k = 0; k < z; ++k){
-                if(grid.P.getCellMark(i-1,j,k) == FLUID || grid.P.getCellMark(i,j,k) == FLUID){
-                    if(grid.P.getCellMark(i-1,j,k) == SOLID || grid.P.getCellMark(i,j,k) == SOLID){
+                if(grid->P->getCellMark(i-1,j,k) == FLUID || grid->P->getCellMark(i,j,k) == FLUID){
+                    if(grid->P->getCellMark(i-1,j,k) == SOLID || grid->P->getCellMark(i,j,k) == SOLID){
                         //set cell value as usolid at i,j,k
-                        grid.vel_U.setCell(i,j,k,0.f);
+                        grid->vel_U->setCell(i,j,k,0.f);
                     }
                     else{
-                        grid.vel_U.setCellAdd(i,j,k, -(scale * (grid.P(i,j,k) - grid.P(i-1,j,k))));
+                        grid->vel_U->setCellAdd(i,j,k, -(scale * ((*grid->P)(i,j,k) - (*grid->P)(i-1,j,k))));
                     }
                 }
                 else{
                     //set as unknown
-//                    grid.vel_U.setCell(i,j,k, UNKNOWN);
+//                    grid->vel_U->setCell(i,j,k, UNKNOWN);
                 }
             }
         }
@@ -574,18 +601,18 @@ void FluidSolver::SubtractPressureGradient(){
     for(int i = 0; i < x; ++i){
         for(int j = 0; j < y+1; ++j){
             for(int k = 0; k < z; ++k){
-                if(grid.P.getCellMark(i,j-1,k) == FLUID || grid.P.getCellMark(i,j,k) == FLUID){
-                    if(grid.P.getCellMark(i,j-1,k) == SOLID || grid.P.getCellMark(i,j,k) == SOLID){
+                if(grid->P->getCellMark(i,j-1,k) == FLUID || grid->P->getCellMark(i,j,k) == FLUID){
+                    if(grid->P->getCellMark(i,j-1,k) == SOLID || grid->P->getCellMark(i,j,k) == SOLID){
                         //set cell value as usolid at i,j,k
-                        grid.vel_V.setCell(i,j,k,0.f);
+                        grid->vel_V->setCell(i,j,k,0.f);
                     }
                     else{
-                        grid.vel_V.setCellAdd(i,j,k, -(scale * (grid.P(i,j,k) - grid.P(i,j-1,k))));
+                        grid->vel_V->setCellAdd(i,j,k, -(scale * ((*grid->P)(i,j,k) - (*grid->P)(i,j-1,k))));
                     }
                 }
                 else{
                     //set as unknown
-//                    grid.vel_V.setCell(i,j,k, UNKNOWN);
+//                    grid->vel_V->setCell(i,j,k, UNKNOWN);
                 }
             }
         }
@@ -594,18 +621,18 @@ void FluidSolver::SubtractPressureGradient(){
     for(int i = 0; i < x; ++i){
         for(int j = 0; j < y; ++j){
             for(int k = 0; k < z+1; ++k){
-                if(grid.P.getCellMark(i,j,k-1) == FLUID || grid.P.getCellMark(i,j,k) == FLUID){
-                    if(grid.P.getCellMark(i,j,k-1) == SOLID || grid.P.getCellMark(i,j,k) == SOLID){
+                if(grid->P->getCellMark(i,j,k-1) == FLUID || grid->P->getCellMark(i,j,k) == FLUID){
+                    if(grid->P->getCellMark(i,j,k-1) == SOLID || grid->P->getCellMark(i,j,k) == SOLID){
                         //set cell value as usolid at i,j,k
-                        grid.vel_W.setCell(i,j,k,0.f);
+                        grid->vel_W->setCell(i,j,k,0.f);
                     }
                     else{
-                        grid.vel_W.setCellAdd(i,j,k, -(scale * (grid.P(i,j,k) - grid.P(i,j,k-1))));
+                        grid->vel_W->setCellAdd(i,j,k, -(scale * ((*grid->P)(i,j,k) - (*grid->P)(i,j,k-1))));
                     }
                 }
                 else{
                     //set as unknown
-//                    grid.vel_W.setCell(i,j,k, UNKNOWN);
+//                    grid->vel_W->setCell(i,j,k, UNKNOWN);
                 }
             }
         }
@@ -616,7 +643,7 @@ vec3 EulerStep (const vec3 pos, const vec3 speed, float time_step){
     return pos + speed * time_step;
 }
 
-vec3 FluidSolver::integratePos(const vec3 pos, const vec3 speed, float time_step, bool RK2){
+vec3 FluidSolver::integratePos(const vec3& pos, const vec3& speed, const float& time_step, bool RK2){
     vec3 new_pos(0.f);
     if(RK2){
         //RK2 integration
@@ -637,13 +664,13 @@ vec3 FluidSolver::integratePos(const vec3 pos, const vec3 speed, float time_step
 }
 
 void FluidSolver::ExtrapolateVelocity(){
-    int x = grid.P.containerBounds.x;
-    int y = grid.P.containerBounds.y;
-    int z = grid.P.containerBounds.z;
+    int x = grid->P->resolution.x;
+    int y = grid->P->resolution.y;
+    int z = grid->P->resolution.z;
 
-    MACGridData extrapolate_grid_U;
-    MACGridData extrapolate_grid_V;
-    MACGridData extrapolate_grid_W;
+    MACGridData extrapolate_grid_U(resolution, containerBounds, cellSize);
+    MACGridData extrapolate_grid_V(resolution, containerBounds, cellSize);
+    MACGridData extrapolate_grid_W(resolution, containerBounds, cellSize);
     extrapolate_grid_U.MACGridDataInitialize();
     extrapolate_grid_V.MACGridDataInitialize();
     extrapolate_grid_W.MACGridDataInitialize();
@@ -658,14 +685,14 @@ void FluidSolver::ExtrapolateVelocity(){
         for(int j = 0; j < y; ++j){
             for(int k = 0; k < z; ++k){
                 //marking fluid or near fluid cells as FLUID
-                if((i < x && grid.P.getCellMark(i,j,k) == FLUID) || (i > 0 && grid.P.getCellMark(i-1,j,k) == FLUID)){
+                if((i < x && grid->P->getCellMark(i,j,k) == FLUID) || (i > 0 && grid->P->getCellMark(i-1,j,k) == FLUID)){
                     extrapolate_grid_U.setCellMark(i,j,k, FLUID, true);
                 }
                 //marking solid for extrapolation
-                else if((i < x && (grid.P.getCellMark(i,j,k) == SOLID)) &&
-                        (i > 0 && (grid.P.getCellMark(i-1,j,k) == SOLID )) //check if me solid and near solid
-                        || (i < x && (grid.P.getCellMark(i,j,k) == AIR)) &&
-                        (i > 0 && (grid.P.getCellMark(i-1,j,k) == SOLID || grid.P.getCellMark(i-1,j,k) == AIR))) //me air, and near (solid or air)
+                else if((i < x && (grid->P->getCellMark(i,j,k) == SOLID)) &&
+                        (i > 0 && (grid->P->getCellMark(i-1,j,k) == SOLID )) //check if me solid and near solid
+                        || (i < x && (grid->P->getCellMark(i,j,k) == AIR)) &&
+                        (i > 0 && (grid->P->getCellMark(i-1,j,k) == SOLID || grid->P->getCellMark(i-1,j,k) == AIR))) //me air, and near (solid or air)
                 {
                     extrapolate_grid_U.setCellMark(i,j,k,SOLID, true);
                 }
@@ -677,14 +704,14 @@ void FluidSolver::ExtrapolateVelocity(){
         for(int j = 0; j < y+1; ++j){
             for(int k = 0; k < z; ++k){
                 //marking fluid or near fluid cells as FLUID
-                if((j < y && grid.P.getCellMark(i,j,k) == FLUID) || (j > 0 && grid.P.getCellMark(i,j-1,k) == FLUID)){
+                if((j < y && grid->P->getCellMark(i,j,k) == FLUID) || (j > 0 && grid->P->getCellMark(i,j-1,k) == FLUID)){
                     extrapolate_grid_V.setCellMark(i,j,k, FLUID, true);
                 }
                 //marking solid for extrapolation
-                else if((j < y && (grid.P.getCellMark(i,j,k) == SOLID)) &&
-                        (j > 0 && (grid.P.getCellMark(i,j-1,k) == SOLID )) //check if me solid and near solid
-                        || (j < y && (grid.P.getCellMark(i,j,k) == AIR)) &&
-                        (j > 0 && (grid.P.getCellMark(i,j-1,k) == SOLID || grid.P.getCellMark(i,j-1,k) == AIR))) //me air, and near (solid or air)
+                else if((j < y && (grid->P->getCellMark(i,j,k) == SOLID)) &&
+                        (j > 0 && (grid->P->getCellMark(i,j-1,k) == SOLID )) //check if me solid and near solid
+                        || (j < y && (grid->P->getCellMark(i,j,k) == AIR)) &&
+                        (j > 0 && (grid->P->getCellMark(i,j-1,k) == SOLID || grid->P->getCellMark(i,j-1,k) == AIR))) //me air, and near (solid or air)
                 {
                     extrapolate_grid_V.setCellMark(i,j,k,SOLID, true);
                 }
@@ -696,14 +723,14 @@ void FluidSolver::ExtrapolateVelocity(){
         for(int j = 0; j < y; ++j){
             for(int k = 0; k < z+1; ++k){
                 //marking fluid or near fluid cells as FLUID
-                if((k < z && grid.P.getCellMark(i,j,k) == FLUID) || (k > 0 && grid.P.getCellMark(i,j,k-1) == FLUID)){
+                if((k < z && grid->P->getCellMark(i,j,k) == FLUID) || (k > 0 && grid->P->getCellMark(i,j,k-1) == FLUID)){
                     extrapolate_grid_W.setCellMark(i,j,k, FLUID, true);
                 }
                 //marking solid for extrapolation
-                else if((k < z && (grid.P.getCellMark(i,j,k) == SOLID)) &&
-                        (k > 0 && (grid.P.getCellMark(i,j,k-1) == SOLID )) //check if me solid and near solid
-                        || (k < z && (grid.P.getCellMark(i,j,k) == AIR)) &&
-                        (k > 0 && (grid.P.getCellMark(i,j,k-1) == SOLID || grid.P.getCellMark(i,j,k-1) == AIR))) //me air, and near (solid or air)
+                else if((k < z && (grid->P->getCellMark(i,j,k) == SOLID)) &&
+                        (k > 0 && (grid->P->getCellMark(i,j,k-1) == SOLID )) //check if me solid and near solid
+                        || (k < z && (grid->P->getCellMark(i,j,k) == AIR)) &&
+                        (k > 0 && (grid->P->getCellMark(i,j,k-1) == SOLID || grid->P->getCellMark(i,j,k-1) == AIR))) //me air, and near (solid or air)
                 {
                     extrapolate_grid_W.setCellMark(i,j,k,SOLID, true);
                 }
@@ -727,18 +754,17 @@ void FluidSolver::ExtrapolateVelocity(){
                                 q[qk][1] < y && q[qk][2] >= 0 && q[qk][2] < z ) {
 
                             if(extrapolate_grid_U.getCellMark(q[qk][0], q[qk][1], q[qk][2]) == FLUID){
-                                //std::cout << "[thanda] ExtrapolateVelocity for "<< i << " "<< j << " "<< k << " from " << q[qk][0] << " "<< q[qk][1] << " "<< q[qk][2] << " : " << this->grid.vel_V(q[qk][0], q[qk][1], q[qk][2]) << std::endl;
+                                //std::cout << "[thanda] ExtrapolateVelocity for "<< i << " "<< j << " "<< k << " from " << q[qk][0] << " "<< q[qk][1] << " "<< q[qk][2] << " : " << this->grid->vel_V(q[qk][0], q[qk][1], q[qk][2]) << std::endl;
 
                                 wsum ++;
-                                sum += grid.vel_U(q[qk][0],q[qk][1],
-                                        q[qk][2]);
+                                sum += (*grid->vel_U)(q[qk][0],q[qk][1],q[qk][2]);
                             }
                         }
                     }
                     if(wsum){
-                        grid.vel_U.setCell(i,j,k,sum/wsum);
+                        grid->vel_U->setCell(i,j,k,sum/wsum);
                     }
-                    //std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i, j+1, k) << " at idx " << i << " "<< j+1 << " "<< k << " : "<< this->grid.vel_V(i,j+1,k) << std::endl;
+                    //std::cout << "[thanda] Cell Type :"<< this->grid->P->getCellMark(i, j+1, k) << " at idx " << i << " "<< j+1 << " "<< k << " : "<< this->grid->vel_V(i,j+1,k) << std::endl;
                 }
                 //y faces
                 if((i < x && k < z) && extrapolate_grid_V.getCellMark(i, j, k) == SOLID){
@@ -752,20 +778,20 @@ void FluidSolver::ExtrapolateVelocity(){
                                 q[qk][1] < y+1 && q[qk][2] >= 0 && q[qk][2] < z ) {
 
                             if(extrapolate_grid_V.getCellMark(q[qk][0], q[qk][1], q[qk][2]) == FLUID){
-                                //std::cout << "[thanda] ExtrapolateVelocity for "<< i << " "<< j << " "<< k << " from " << q[qk][0] << " "<< q[qk][1] << " "<< q[qk][2] << " : " << this->grid.vel_V(q[qk][0], q[qk][1], q[qk][2]) << std::endl;
+                                //std::cout << "[thanda] ExtrapolateVelocity for "<< i << " "<< j << " "<< k << " from " << q[qk][0] << " "<< q[qk][1] << " "<< q[qk][2] << " : " << this->grid->vel_V(q[qk][0], q[qk][1], q[qk][2]) << std::endl;
 
                                 wsum ++;
 
-                                sum += grid.vel_V(q[qk][0],q[qk][1],
+                                sum += (*grid->vel_V)(q[qk][0],q[qk][1],
                                         q[qk][2]);
                             }
                         }
                     }
                     if(wsum){
                         //std::cout << "[thanda] ExtrapolateVelocity for "<< i << " "<< j << " "<< k << " : "<< sum/wsum<<std::endl;
-                        grid.vel_V.setCell(i,j,k,sum/wsum);
+                        grid->vel_V->setCell(i,j,k,sum/wsum);
                     }
-                    //std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i, j+1, k) << " at idx " << i << " "<< j+1 << " "<< k << " : "<< this->grid.vel_V(i,j+1,k) << std::endl;
+                    //std::cout << "[thanda] Cell Type :"<< this->grid->P->getCellMark(i, j+1, k) << " at idx " << i << " "<< j+1 << " "<< k << " : "<< this->grid->vel_V(i,j+1,k) << std::endl;
                 }
                 //z faces
                 if((j < y && i < x) && extrapolate_grid_W.getCellMark(i, j, k) == SOLID){
@@ -779,19 +805,19 @@ void FluidSolver::ExtrapolateVelocity(){
                                 q[qk][1] < y && q[qk][2] >= 0 && q[qk][2] < z+1 ) {
 
                             if(extrapolate_grid_W.getCellMark(q[qk][0], q[qk][1], q[qk][2]) == FLUID){
-                                //std::cout << "[thanda] ExtrapolateVelocity for "<< i << " "<< j << " "<< k << " from " << q[qk][0] << " "<< q[qk][1] << " "<< q[qk][2] << " : " << this->grid.vel_V(q[qk][0], q[qk][1], q[qk][2]) << std::endl;
+                                //std::cout << "[thanda] ExtrapolateVelocity for "<< i << " "<< j << " "<< k << " from " << q[qk][0] << " "<< q[qk][1] << " "<< q[qk][2] << " : " << this->grid->vel_V(q[qk][0], q[qk][1], q[qk][2]) << std::endl;
 
                                 wsum ++;
 
-                                sum += grid.vel_W(q[qk][0],q[qk][1],
+                                sum += (*grid->vel_W)(q[qk][0],q[qk][1],
                                         q[qk][2]);
                             }
                         }
                     }
                     if(wsum){
-                        grid.vel_W.setCell(i,j,k,sum/wsum);
+                        grid->vel_W->setCell(i,j,k,sum/wsum);
                     }
-                    //std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i, j+1, k) << " at idx " << i << " "<< j+1 << " "<< k << " : "<< this->grid.vel_V(i,j+1,k) << std::endl;
+                    //std::cout << "[thanda] Cell Type :"<< this->grid->P->getCellMark(i, j+1, k) << " at idx " << i << " "<< j+1 << " "<< k << " : "<< this->grid->vel_V(i,j+1,k) << std::endl;
                 }
             }
 
@@ -800,22 +826,22 @@ void FluidSolver::ExtrapolateVelocity(){
 }
 
 
-void FluidSolver::setBoundaryVelocitiesToZero(const glm::vec3 containerBounds){
+void FluidSolver::setBoundaryVelocitiesToZero(){
 
-    int x = grid.P.containerBounds.x;
-    int y = grid.P.containerBounds.y;
-    int z = grid.P.containerBounds.z;
+    int x = grid->P->resolution.x;
+    int y = grid->P->resolution.y;
+    int z = grid->P->resolution.z;
     //neighborhood of 0, based on distance
 
     for(int i = 0; i < x + 1; ++i){
         for(int j = 0; j < y; ++j){
             for(int k = 0; k < z; ++k){
                 if(i == 0 || i == x){
-                    grid.vel_U.setCell(i, j, k, 0.f);
+                    grid->vel_U->setCell(i, j, k, 0.f);
                 }
-                if (i > 0 && i < x && ((grid.P.getCellMark(i,j,k) == SOLID && grid.P.getCellIndex(i-1,j,k) == FLUID) ||
-                                       (grid.P.getCellMark(i,j,k) == FLUID && grid.P.getCellIndex(i-1,j,k) == SOLID))){
-                    grid.vel_U.setCell(i, j, k, 0.f);
+                if (i > 0 && i < x && ((grid->P->getCellMark(i,j,k) == SOLID && grid->P->getCellIndex(i-1,j,k) == FLUID) ||
+                                       (grid->P->getCellMark(i,j,k) == FLUID && grid->P->getCellIndex(i-1,j,k) == SOLID))){
+                    grid->vel_U->setCell(i, j, k, 0.f);
                 }
             }
         }
@@ -826,11 +852,11 @@ void FluidSolver::setBoundaryVelocitiesToZero(const glm::vec3 containerBounds){
         for(int j = 0; j < y + 1; ++j){
             for(int k = 0; k < z; ++k){
                 if(j == 0 || j == y){
-                    grid.vel_V.setCell(i, j, k, 0.f);
+                    grid->vel_V->setCell(i, j, k, 0.f);
                 }
-                if (j > 0 && j < y && ((grid.P.getCellMark(i,j,k) == SOLID && grid.P.getCellIndex(i,j-1,k) == FLUID) ||
-                                       (grid.P.getCellMark(i,j,k) == FLUID && grid.P.getCellIndex(i,j,k) == SOLID))){
-                    grid.vel_V.setCell(i, j, k, 0.f);
+                if (j > 0 && j < y && ((grid->P->getCellMark(i,j,k) == SOLID && grid->P->getCellIndex(i,j-1,k) == FLUID) ||
+                                       (grid->P->getCellMark(i,j,k) == FLUID && grid->P->getCellIndex(i,j,k) == SOLID))){
+                    grid->vel_V->setCell(i, j, k, 0.f);
                 }
             }
         }
@@ -840,11 +866,11 @@ void FluidSolver::setBoundaryVelocitiesToZero(const glm::vec3 containerBounds){
         for(int j = 0; j < y; ++j){
             for(int k = 0; k < z + 1; ++k){
                 if(k == 0 || k == z){
-                    grid.vel_W.setCell(i, j, k, 0.f);
+                    grid->vel_W->setCell(i, j, k, 0.f);
                 }
-                if (k > 0 && k < z && ((grid.P.getCellMark(i,j,k) == SOLID && grid.P.getCellIndex(i,j,k-1) == FLUID) ||
-                                       (grid.P.getCellMark(i,j,k) == FLUID && grid.P.getCellIndex(i,j,k-1) == SOLID))){
-                    grid.vel_W.setCell(i, j, k, 0.f);
+                if (k > 0 && k < z && ((grid->P->getCellMark(i,j,k) == SOLID && grid->P->getCellIndex(i,j,k-1) == FLUID) ||
+                                       (grid->P->getCellMark(i,j,k) == FLUID && grid->P->getCellIndex(i,j,k-1) == SOLID))){
+                    grid->vel_W->setCell(i, j, k, 0.f);
                 }
             }
         }
@@ -856,14 +882,14 @@ void FluidSolver::storeCurrentGridVelocities(){
 }
 
 void FluidSolver::clearGrid(){
-    std::fill(grid.save_kernel_wt_U.data.begin(), grid.save_kernel_wt_U.data.end(), 0.f);
-    std::fill(grid.save_kernel_wt_V.data.begin(), grid.save_kernel_wt_V.data.end(), 0.f);
-    std::fill(grid.save_kernel_wt_W.data.begin(), grid.save_kernel_wt_W.data.end(), 0.f);
-    std::fill(grid.vel_U.data.begin(), grid.vel_U.data.end(), 0.f);
-    std::fill(grid.vel_V.data.begin(), grid.vel_V.data.end(), 0.f);
-    std::fill(grid.vel_W.data.begin(), grid.vel_W.data.end(), 0.f);
-    std::fill(grid.P.data.begin(), grid.P.data.end(), 0.f);
-    std::fill(grid.P.mData.begin(), grid.P.mData.end(), 0.f);
+    std::fill(grid->save_kernel_wt_U->data.begin(), grid->save_kernel_wt_U->data.end(), 0.f);
+    std::fill(grid->save_kernel_wt_V->data.begin(), grid->save_kernel_wt_V->data.end(), 0.f);
+    std::fill(grid->save_kernel_wt_W->data.begin(), grid->save_kernel_wt_W->data.end(), 0.f);
+    std::fill(grid->vel_U->data.begin(), grid->vel_U->data.end(), 0.f);
+    std::fill(grid->vel_V->data.begin(), grid->vel_V->data.end(), 0.f);
+    std::fill(grid->vel_W->data.begin(), grid->vel_W->data.end(), 0.f);
+    std::fill(grid->P->data.begin(), grid->P->data.end(), 0.f);
+    std::fill(grid->P->mData.begin(), grid->P->mData.end(), 0);
 }
 
 void FluidSolver::step(){
@@ -878,15 +904,15 @@ void FluidSolver::step(){
     this->storeParticleVelocityToGrid();
 #ifdef DEBUG
         std::cout << "[thanda] storeParticleVelocityToGrid Iteration" << std::endl;
-    std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i, j, k) << " at idx " << i << " "<< j << " "<< k << " : "<< this->grid.vel_V(i,j,k) << std::endl;
-    std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i, j+1, k) << " at idx " << i << " "<< j+1 << " "<< k << " : "<< this->grid.vel_V(i,j+1,k) << std::endl;
-    std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i+1, j, k) << " at idx " << i+1 << " "<< j << " "<< k << " : "<< this->grid.vel_V(i+1,j,k) << std::endl;
-    std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i+1, j+1, k) << " at idx " << i+1 << " "<< j+1 << " "<< k << " : "<< this->grid.vel_V(i+1,j+1,k) << std::endl; // is this valid
+    std::cout << "[thanda] Cell Type :"<< this->grid->P->getCellMark(i, j, k) << " at idx " << i << " "<< j << " "<< k << " : "<< (*grid->vel_V)(i,j,k) << std::endl;
+    std::cout << "[thanda] Cell Type :"<< this->grid->P->getCellMark(i, j+1, k) << " at idx " << i << " "<< j+1 << " "<< k << " : "<< (*grid->vel_V)(i,j+1,k) << std::endl;
+    std::cout << "[thanda] Cell Type :"<< this->grid->P->getCellMark(i+1, j, k) << " at idx " << i+1 << " "<< j << " "<< k << " : "<< (*grid->vel_V)(i+1,j,k) << std::endl;
+    std::cout << "[thanda] Cell Type :"<< this->grid->P->getCellMark(i+1, j+1, k) << " at idx " << i+1 << " "<< j+1 << " "<< k << " : "<< (*grid->vel_V)(i+1,j+1,k) << std::endl; // is this valid
 
-    std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i, j, k+1) << " at idx " << i << " "<< j << " "<< k+1 << " : "<< this->grid.vel_V(i,j,k+1) << std::endl;
-    std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i, j+1, k+1) << " at idx " << i << " "<< j+1 << " "<< k+1 << " : "<< this->grid.vel_V(i,j+1,k+1) << std::endl;
-    std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i+1, j, k+1) << " at idx " << i+1 << " "<< j << " "<< k+1 << " : "<< this->grid.vel_V(i+1,j,k+1) << std::endl;
-    std::cout << "[thanda] Cell Type :"<< this->grid.P.getCellMark(i+1, j+1, k+1) << " at idx " << i+1 << " "<< j+1 << " "<< k+1 << " : "<< this->grid.vel_V(i+1,j+1,k+1) << std::endl; // is this valid
+    std::cout << "[thanda] Cell Type :"<< this->grid->P->getCellMark(i, j, k+1) << " at idx " << i << " "<< j << " "<< k+1 << " : "<< (*grid->vel_V)(i,j,k+1) << std::endl;
+    std::cout << "[thanda] Cell Type :"<< this->grid->P->getCellMark(i, j+1, k+1) << " at idx " << i << " "<< j+1 << " "<< k+1 << " : "<< (*grid->vel_V)(i,j+1,k+1) << std::endl;
+    std::cout << "[thanda] Cell Type :"<< this->grid->P->getCellMark(i+1, j, k+1) << " at idx " << i+1 << " "<< j << " "<< k+1 << " : "<< (*grid->vel_V)(i+1,j,k+1) << std::endl;
+    std::cout << "[thanda] Cell Type :"<< this->grid->P->getCellMark(i+1, j+1, k+1) << " at idx " << i+1 << " "<< j+1 << " "<< k+1 << " : "<< (*grid->vel_V)(i+1,j+1,k+1) << std::endl; // is this valid
 
 #endif
     
@@ -897,12 +923,12 @@ void FluidSolver::step(){
     // Step 5 - Store a temporary copy of Grid Velocities for FLIP
     this->storeCurrentGridVelocities();
     
-    this->setBoundaryVelocitiesToZero(containerBounds);
+    this->setBoundaryVelocitiesToZero();
     
     //pressure solve
     this->ProjectPressure();
     
-    this->setBoundaryVelocitiesToZero(containerBounds);
+    this->setBoundaryVelocitiesToZero();
     this->ExtrapolateVelocity();
 
     // Step  - Calculate new flip & pic velocities for each particle
