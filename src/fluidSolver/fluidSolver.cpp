@@ -1,9 +1,10 @@
 //
 //  fluidSolver.cpp
 //  Thanda
-//#define DEBUG
+#define DEBUG
 #define VISCOSITY 0.f
 #define EPSILON 0.00001f
+#define SEED 1
 
 #include "fluidSolver.hpp"
 #include "../scene/scene.hpp"
@@ -150,7 +151,7 @@ void FluidSolver::genParticles(float particle_separation, float boundx, float bo
         for(int j = 1; j < (int)boundy; j++){
             for(int k = 1; k < (int)boundz; k++){
                 iter=0;
-                while(iter < 16){
+                while(iter < SEED){
 //                    P->pos = vec3(1.8,1.8,1.6);
                     p.pos = vec3(rand(i,i+1), rand(j,j+1), rand(k, k+1)) * this->cellSize;
                     p.speed = vec3(0.f, 0.f, 0.f);
@@ -277,7 +278,7 @@ void FluidSolver::storeParticleVelocityToGrid(){
         vec3 w_pos = ParticlesContainer.at(i).pos;
         index = ParticlesContainer.at(i).gridIdx;
         x = index.x, y = index.y, z = index.z;
-
+        weight = 0.f;
         grid->P->setCellMark(x, y, z, FLUID, true);
 
         //################## X direction #############################################
@@ -328,36 +329,37 @@ void FluidSolver::storeParticleVelocityToGrid(){
         fract_partz = (pos[2] - z);
 
         //splatting to all neighbors that are/will be involved in trilerp
+        float speedY = ParticlesContainer.at(i).speed.y;
         weight = (1-fract_partx)*(1-fract_party)*(1-fract_partz);
-        grid->vel_V->setCellAdd(x, y, z, ParticlesContainer.at(i).speed.y * weight);
+        grid->vel_V->setCellAdd(x, y, z, speedY * weight);
         grid->save_kernel_wt_V->setCellAdd(x, y, z, weight);
 
         weight = (fract_partx)*(1-fract_party)*(1-fract_partz);
-        grid->vel_V->setCellAdd(x+1, y, z, ParticlesContainer.at(i).speed.y * weight);
+        grid->vel_V->setCellAdd(x+1, y, z, speedY * weight);
         grid->save_kernel_wt_V->setCellAdd(x+1, y, z, weight);
 
         weight = (fract_partx)*(fract_party)*(1-fract_partz);
-        grid->vel_V->setCellAdd(x+1, y+1, z, ParticlesContainer.at(i).speed.y * weight);
+        grid->vel_V->setCellAdd(x+1, y+1, z, speedY * weight);
         grid->save_kernel_wt_V->setCellAdd(x+1, y+1, z, weight);
 
         weight = (1-fract_partx)*(fract_party)*(1-fract_partz);
-        grid->vel_V->setCellAdd(x, y+1, z, ParticlesContainer.at(i).speed.y * weight);
+        grid->vel_V->setCellAdd(x, y+1, z, speedY * weight);
         grid->save_kernel_wt_V->setCellAdd(x, y+1, z, weight);
 
         weight = (1-fract_partx)*(fract_party)*(fract_partz);
-        grid->vel_V->setCellAdd(x, y+1, z+1, ParticlesContainer.at(i).speed.y * weight);
+        grid->vel_V->setCellAdd(x, y+1, z+1, speedY * weight);
         grid->save_kernel_wt_V->setCellAdd(x, y+1, z+1, weight);
 
         weight = (1-fract_partx)*(1-fract_party)*(fract_partz);
-        grid->vel_V->setCellAdd(x, y, z+1, ParticlesContainer.at(i).speed.y * weight );
+        grid->vel_V->setCellAdd(x, y, z+1, speedY * weight );
         grid->save_kernel_wt_V->setCellAdd(x, y, z+1, weight);
 
         weight = (fract_partx)*(1-fract_party)*(fract_partz);
-        grid->vel_V->setCellAdd(x+1, y, z+1, ParticlesContainer.at(i).speed.y * weight);
+        grid->vel_V->setCellAdd(x+1, y, z+1, speedY * weight);
         grid->save_kernel_wt_V->setCellAdd(x+1, y, z+1, weight);
 
         weight = (fract_partx)*(fract_party)*(fract_partz);
-        grid->vel_V->setCellAdd(x+1, y+1, z+1, ParticlesContainer.at(i).speed.y * weight);
+        grid->vel_V->setCellAdd(x+1, y+1, z+1, speedY * weight);
         grid->save_kernel_wt_V->setCellAdd(x+1, y+1, z+1, weight);
 
         //############### z direction #######################################################
@@ -509,20 +511,30 @@ void FluidSolver::buildMatrixA(std::vector<Eigen::Triplet<double>>& coefficients
 }
 
 void FluidSolver::buildDivergences(Eigen::VectorXd& u, int n){
-    float h = 1.f;
-    int iter = 0;
+    float h = this->cellSize;
     for(int i = 0; i < resolution.x; ++i){
         for(int j = 0; j < resolution.y; ++j){
             for(int k = 0; k < resolution.z; ++k){
-                double divergence = ((*grid->vel_U)(i+1, j, k) -
-                                    (*grid->vel_U)(i, j, k) +
-                                    (*grid->vel_V)(i, j+1, k) -
-                                    (*grid->vel_V)(i, j, k) +
-                                    (*grid->vel_W)(i, j, k+1) -
-                                    (*grid->vel_W)(i, j, k)
-                                    ) / h;
+                if(grid->P->getCellMark(i,j,k) == FLUID){
+                    int id = k * resolution.x * resolution.y + j * resolution.x + i;
+                    double divergence = ((*grid->vel_U)(i+1, j, k) -
+                                        (*grid->vel_U)(i, j, k) +
+                                        (*grid->vel_V)(i, j+1, k) -
+                                        (*grid->vel_V)(i, j, k) +
+                                        (*grid->vel_W)(i, j, k+1) -
+                                        (*grid->vel_W)(i, j, k)
+                                        ) / h;
+                    if(id == 31){
+                        std::cout << (*grid->vel_U)(i+1, j, k) << ", " <<
+                                     (*grid->vel_U)(i, j, k)  << ", " <<
+                                     (*grid->vel_V)(i, j+1, k) << ", " <<
+                                     (*grid->vel_V)(i, j, k)    << ", " <<
+                                     (*grid->vel_W)(i, j, k+1) << ", " <<
+                                     (*grid->vel_W)(i, j, k) << std::endl;
+                    }
 
-                u[iter++] = -divergence;
+                    u[id] = -divergence;
+                }
             }
         }
     }
@@ -534,7 +546,7 @@ void FluidSolver::fillPressureGrid(Eigen::VectorXd x, int n){
     for(int i = 0; i < resolution.x; ++i){
         for(int j = 0; j < resolution.y; ++j){
             for(int k = 0; k < resolution.z; ++k){
-                grid->P->setCell(i,j,k, x[iter++]);
+                grid->P->setCell(i,j,k, max((float)x[iter++], 0.f));
 #ifdef DEBUG
                 if(grid->P->getCellMark(i,j,k) == FLUID){
                     float x = (*grid->P)(i,j,k);
@@ -559,12 +571,15 @@ void FluidSolver::ProjectPressure(){
     A.setFromTriplets(coefficients.begin(), coefficients.end());
 
     //solve
-    Eigen::ConjugateGradient<Eigen::SparseMatrix<double>, Eigen::Lower|Eigen::Upper> chol;  // performs a Cholesky factorization of A
+    Eigen::ConjugateGradient<Eigen::SparseMatrix<double>> chol;  // performs a Cholesky factorization of A
     chol.compute(A);
     Eigen::VectorXd p = chol.solve(u);
     fillPressureGrid(p, m);
 
     SubtractPressureGradient();
+
+    buildDivergences(u, m);
+    int a =1;
 }
 
 void FluidSolver::SubtractPressureGradient(){
@@ -950,7 +965,7 @@ void FluidSolver::step(){
         
         Particle& particle = this->ParticlesContainer.at(i); // careful - by reference;
         
-        float dampingFactor = 0.5f;
+        float dampingFactor = 1.f;
         
 //            if(particle.pos.x  < EPSILON || particle.pos.x  > upperBounds.x - EPSILON)
 //            {
@@ -982,6 +997,7 @@ void FluidSolver::step(){
             
         particle.pos = this->integratePos(particle.pos, particle.speed, delta, true);
         particle.gridIdx = glm::ivec3(particle.pos);
+        grid->P->setCellMark(particle.gridIdx.x, particle.gridIdx.y, particle.gridIdx.z, FLUID, true);
     }
     this->clearGrid();
 }

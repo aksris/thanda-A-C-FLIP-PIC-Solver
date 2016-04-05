@@ -11,8 +11,6 @@ MACGridData::MACGridData(ivec3 dimensions, const vec3& containerBounds, float ce
     containerBounds(containerBounds),
     CellSize(cellSize)
 {
-//    CellSize = this->containerBounds.x / resolution.x;
-
     this->containerBounds = containerBounds;
     data.resize(resolution.x * resolution.y * resolution.z);
     mData.resize(resolution.x * resolution.y * resolution.z);
@@ -205,30 +203,6 @@ void MACGridDataX::MACGridDataInitialize(){
     std::fill(data.begin(), data.end(), 0.f);
 }
 
-//float& MACGridDataX::operator ()(int i, int j, int k){
-
-//    float ret = 0.f;
-//    if (i < 0 || i > resolution.x) return ret;
-//    if (j < 0) {
-//        j = 0;
-//    }
-//    if (k < 0){
-//        k = 0;
-//    }
-//    if (j > resolution.y){
-//        j = resolution.y - 1;
-//    }
-//    if (k > resolution.z){
-//        k = resolution.z - 1;
-//    }
-
-//    int x = i;
-//    int y = j * (resolution.x);
-//    int z = k * (resolution.x) * resolution.y;
-
-//    return data.at(x+y+z);
-//}
-
 vec3 MACGridDataX::worldToLocal(const vec3 &pt) const {
     vec3 ret;
     ret[0] = min(max(0.0f, pt[0]), containerBounds[0]); //staggering // its already at 0 face of x axis
@@ -236,20 +210,6 @@ vec3 MACGridDataX::worldToLocal(const vec3 &pt) const {
     ret[2] = min(max(0.0f, pt[2] - CellSize*0.5f), containerBounds[2]);
     return ret;
 }
-
-//void MACGridDataX::setCell(int &i, int &j, int &k, const float val){
-//    int x = i;
-//    int y = j * (resolution.x + 1);
-//    int z = k * (resolution.x + 1) * resolution.y;
-//    data.at(x+y+z) = val;
-//}
-
-//void MACGridDataX::setCellAdd(const int &i, const int &j, const int &k, const float val){
-//    int x = i;
-//    int y = j * (resolution.x + 1);
-//    int z = k * (resolution.x + 1) * resolution.y;
-//    data.at(x+y+z) += val;
-//}
 
 void MACGridDataY::MACGridDataInitialize(){
     containerBounds[0] = CellSize * (resolution.x);
@@ -259,30 +219,6 @@ void MACGridDataY::MACGridDataInitialize(){
     std::fill(data.begin(), data.end(), 0.f);
 }
 
-//float& MACGridDataY::operator ()(int i, int j, int k){
-
-//    float ret = 0.f;
-//    if (j < 0 || j > resolution.y) return ret;
-//    if (i < 0) {
-//        i = 0;
-//    }
-//    if (k < 0){
-//        k = 0;
-//    }
-//    if (i > resolution.x){
-//        i = resolution.x - 1;
-//    }
-//    if (k > resolution.z){
-//        k = resolution.z - 1;
-//    }
-
-//    int x = i;
-//    int y = j * (resolution.x);
-//    int z = k * (resolution.x) * (resolution.y+1);
-
-//    return data.at(x+y+z);
-//}
-
 vec3 MACGridDataY::worldToLocal(const vec3 &pt) const {
     vec3 ret;
     ret[0] = min(max(0.0f, pt[0]  - CellSize*0.5f), containerBounds[0]);
@@ -290,24 +226,6 @@ vec3 MACGridDataY::worldToLocal(const vec3 &pt) const {
     ret[2] = min(max(0.0f, pt[2] - CellSize*0.5f), containerBounds[2]);
     return ret;
 }
-
-//void MACGridDataY::setCell(int &i, int &j, int &k, const float val){
-//    int x = i;
-//    int y = j * (resolution.x);
-//    int z = k * (resolution.x) * (resolution.y+1);
-
-//    if(x+y+z < data.size()-1 && x+y+z >= 0)
-//        data.at(x+y+z) = val;
-//}
-
-//void MACGridDataY::setCellAdd(const int &i, const int &j, const int &k, const float val){
-//    int x = i;
-//    int y = j * (resolution.x);
-//    int z = k * (resolution.x) * (resolution.y+1);
-
-//    if(x+y+z < data.size()-1 && x+y+z >= 0)
-//        data.at(x+y+z) += val;
-//}
 
 void MACGridDataZ::MACGridDataInitialize(){
     containerBounds[0] = CellSize * (resolution.x);
@@ -317,29 +235,6 @@ void MACGridDataZ::MACGridDataInitialize(){
     std::fill(data.begin(), data.end(), 0.f);
 }
 
-//float& MACGridDataZ::operator ()(int i, int j, int k){
-//    float ret = 0.f;
-//    if (k < 0 || k > resolution.z) return ret;
-//    if (j < 0) {
-//        j = 0;
-//    }
-//    if (i < 0){
-//        i = 0;
-//    }
-//    if (j > resolution.y){
-//        j = resolution.y - 1;
-//    }
-//    if (i > resolution.x){
-//        i = resolution.x - 1;
-//    }
-
-//    int x = i;
-//    int y = j * (resolution.x);
-//    int z = k * (resolution.x) * (resolution.y);
-
-//    return data.at(x+y+z);
-//}
-
 vec3 MACGridDataZ::worldToLocal(const vec3 &pt) const {
     vec3 ret;
     ret[0] = min(max(0.0f, pt[0] - CellSize*0.5f), containerBounds[0]);
@@ -347,16 +242,3 @@ vec3 MACGridDataZ::worldToLocal(const vec3 &pt) const {
     ret[2] = min(max(0.0f, pt[2]), containerBounds[2]);//staggering // its already at 0 face of z axis
     return ret;
 }
-
-//void MACGridDataZ::setCell(int &i, int &j, int &k, const float val){
-//    int x = i;
-//    int y = j * (resolution.x);
-//    int z = k * (resolution.x) * (resolution.y);
-//    data.at(x+y+z) = val;
-//}
-//void MACGridDataZ::setCellAdd(const int &i, const int &j, const int &k, const float val){
-//    int x = i;
-//    int y = j * (resolution.x);
-//    int z = k * (resolution.x) * (resolution.y);
-//    data.at(x+y+z) += val;
-//}

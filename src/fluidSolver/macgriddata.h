@@ -41,9 +41,6 @@ public:
     MACGridDataX():MACGridData(){};
     MACGridDataX(ivec3 dimensions, const vec3& containerBounds, float cellSize) : MACGridData(dimensions, containerBounds, cellSize){};
     virtual void MACGridDataInitialize();
-//    virtual float& operator()(int i, int j, int k);
-//    virtual void setCell(int& i, int& j, int& k, const float val);
-//    void setCellAdd(const int& i,const int& j,const int& k, const float val);
     virtual vec3 worldToLocal(const vec3& pt) const;
 };
 
@@ -53,9 +50,6 @@ public:
     MACGridDataY():MACGridData(){};
     MACGridDataY(ivec3 dimensions, const vec3& containerBounds, float cellSize) : MACGridData(dimensions, containerBounds, cellSize){};
     virtual void MACGridDataInitialize();
-//    virtual float& operator()(int i, int j, int k);
-//    virtual void setCell(int& i, int& j, int& k, const float val);
-//    void setCellAdd(const int& i,const int& j,const int& k, const float val);
     virtual vec3 worldToLocal(const vec3& pt) const;
 };
 
@@ -65,9 +59,6 @@ public:
     MACGridDataZ():MACGridData(){};
     MACGridDataZ(ivec3 dimensions, const vec3& containerBounds, float cellSize) : MACGridData(dimensions, containerBounds, cellSize){};
     virtual void MACGridDataInitialize();
-//    virtual float& operator()(int i, int j, int k);
-//    virtual void setCell(int& i, int& j, int& k, const float val);
-//    void setCellAdd(const int& i,const int& j,const int& k, const float val);
     virtual vec3 worldToLocal(const vec3& pt) const;
 };
 
