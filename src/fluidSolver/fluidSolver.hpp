@@ -47,12 +47,17 @@ public:
 class MACGrid{
 public:
     MACGrid(const ivec3& resolution, const vec3& containerBounds, float cellSize);
-    virtual ~MACGrid();
+    ~MACGrid();
     void initialize();
     MACGrid& operator=(const MACGrid& val);
     MACGridDataX* vel_U;
     MACGridDataY* vel_V;
     MACGridDataZ* vel_W;
+
+    MACGridDataX* flip_vel_U;
+    MACGridDataY* flip_vel_V;
+    MACGridDataZ* flip_vel_W;
+
     MACGridDataX* save_kernel_wt_U;
     MACGridDataY* save_kernel_wt_V;
     MACGridDataZ* save_kernel_wt_W;
@@ -64,9 +69,9 @@ protected:
 class FluidSolver{
 public:
     FluidSolver(const ivec3& resolution, const vec3 &containerBounds);
-
+    ~FluidSolver();
     MACGrid* grid;
-    MACGrid* tmp;
+//    MACGrid* tmp;
 
     float delta;
     int num_cells;

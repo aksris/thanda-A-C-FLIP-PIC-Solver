@@ -11,6 +11,10 @@ Viewer::Viewer(int width, int height, const Scene &s){
     fluid = new FluidSolver(scene.resolution, scene.containerBounds);
 }
 
+Viewer::~Viewer(){
+    delete fluid;
+}
+
 void Viewer::initializeShader(){
 
     programID = scene.LoadShaders( "src/resources/Particle.vertexshader", "src/resources/Particle.fragmentshader" );

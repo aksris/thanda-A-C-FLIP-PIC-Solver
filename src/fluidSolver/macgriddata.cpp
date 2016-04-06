@@ -33,6 +33,7 @@ MACGridData& MACGridData::operator =(const MACGridData& val){
     mData = val.mData;
     containerBounds = val.containerBounds;
     resolution = val.resolution;
+    CellSize = val.CellSize;
     return *this;
 }
 
@@ -149,7 +150,6 @@ float MACGridData::interpolate(const vec3& pt)
     //    This function is trusting ExtrapolateVelocity to make sure there are no non-existant terms.
     //    Or are we supposed to check here regardless?
     
-    // 2: Are boundary cells supposed to be type SOLID? If so why, is cell 0 2 1 not being extrapolated to correctly?
     
     float v000 = (*this)(i >= resolution.x? resolution.x - 1 : i, j >= resolution.y? resolution.y    -1: j, k >= resolution.z? resolution.z -1 : k);
     float v010 = (*this)(i >= resolution.x? resolution.x - 1 : i, j+1 >= resolution.y? resolution.y  -1: j + 1,k >= resolution.z? resolution.z-1 : k);

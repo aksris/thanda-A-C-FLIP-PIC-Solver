@@ -29,6 +29,10 @@ MACGrid::MACGrid(const ivec3& resolution, const vec3& containerBounds,float cell
     vel_V = new MACGridDataY(ivec3(resolution.x, resolution.y+1, resolution.z), containerBounds, cellSize);
     vel_W = new MACGridDataZ(ivec3(resolution.x, resolution.y, resolution.z+1), containerBounds, cellSize);
 
+    flip_vel_U = new MACGridDataX(ivec3(resolution.x + 1, resolution.y, resolution.z), containerBounds, cellSize);
+    flip_vel_V = new MACGridDataY(ivec3(resolution.x, resolution.y+1, resolution.z), containerBounds, cellSize);
+    flip_vel_W = new MACGridDataZ(ivec3(resolution.x, resolution.y, resolution.z+1), containerBounds, cellSize);
+
     save_kernel_wt_U = new MACGridDataX(ivec3(resolution.x + 1, resolution.y, resolution.z), containerBounds, cellSize);
     save_kernel_wt_V = new MACGridDataY(ivec3(resolution.x, resolution.y+1, resolution.z), containerBounds, cellSize);
     save_kernel_wt_W = new MACGridDataZ(ivec3(resolution.x, resolution.y, resolution.z+1), containerBounds, cellSize);
@@ -91,7 +95,12 @@ FluidSolver::FluidSolver(const ivec3& resolution, const vec3& containerBounds){
     this->cellSize = containerBounds.x/resolution.x;
 
     grid = new MACGrid(this->resolution, this->containerBounds, this->cellSize);
-    tmp = new MACGrid(this->resolution, this->containerBounds, this->cellSize);
+//    tmp = new MACGrid(this->resolution, this->containerBounds, this->cellSize);
+}
+
+FluidSolver::~FluidSolver(){
+    delete grid;
+//    delete tmp;
 }
 
 int FluidSolver::findUnusedParticles(){
@@ -176,21 +185,21 @@ void FluidSolver::FlipSolve(){
     for(int i = 0; i < x + 1; ++i){
         for(int j = 0; j < y; ++j){
             for(int k = 0; k < z; ++k){
-                tmp->vel_U->setCell(i, j, k, (*grid->vel_U)(i, j, k) - (*tmp->vel_U)(i, j, k));
+                grid->flip_vel_U->setCell(i, j, k, (*grid->vel_U)(i, j, k) - (*grid->flip_vel_U)(i, j, k));
             }
         }
     }
     for(int i = 0; i < x; ++i){
         for(int j = 0; j < y + 1; ++j){
             for(int k = 0; k < z; ++k){
-                tmp->vel_V->setCell(i, j, k, (*grid->vel_V)(i, j, k) - (*tmp->vel_V)(i, j, k)) ;
+                grid->flip_vel_V->setCell(i, j, k, (*grid->vel_V)(i, j, k) - (*grid->flip_vel_V)(i, j, k)) ;
             }
         }
     }
     for(int i = 0; i < x; ++i){
         for(int j = 0; j < y; ++j){
             for(int k = 0; k < z + 1; ++k){
-                tmp->vel_W->setCell(i, j, k, (*grid->vel_W)(i, j, k) - (*tmp->vel_W)(i, j, k));
+                grid->flip_vel_W->setCell(i, j, k, (*grid->vel_W)(i, j, k) - (*grid->flip_vel_W)(i, j, k));
             }
         }
     }
@@ -199,9 +208,9 @@ void FluidSolver::FlipSolve(){
     //for every particle, set the change in velocity + current particle velocity
     //interpolate
     for(int i = 0; i < particle_save.size(); i++){
-        particle_save.at(i).speed.x = tmp->vel_U->interpolate(particle_save.at(i).pos);
-        particle_save.at(i).speed.y = tmp->vel_V->interpolate(particle_save.at(i).pos);
-        particle_save.at(i).speed.z = tmp->vel_W->interpolate(particle_save.at(i).pos);
+        particle_save.at(i).speed.x = grid->flip_vel_U->interpolate(particle_save.at(i).pos);
+        particle_save.at(i).speed.y = grid->flip_vel_V->interpolate(particle_save.at(i).pos);
+        particle_save.at(i).speed.z = grid->flip_vel_W->interpolate(particle_save.at(i).pos);
     }
 
 }
@@ -971,7 +980,11 @@ void FluidSolver::setBoundaryVelocitiesToZero(){
 }
 
 void FluidSolver::storeCurrentGridVelocities(){
-    tmp = grid;
+//    tmp=grid;
+    *this->grid->flip_vel_U = *this->grid->vel_U;
+    *this->grid->flip_vel_V = *this->grid->vel_V;
+    *this->grid->flip_vel_W = *this->grid->vel_W;
+    
 }
 
 void FluidSolver::clearGrid(){

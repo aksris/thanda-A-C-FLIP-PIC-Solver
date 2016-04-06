@@ -29,6 +29,7 @@ using namespace std;
 class Viewer {
 public:
     Viewer(int width, int height, const Scene& s);
+    ~Viewer();
     void initializeGL();
     void initializeShader();
 
@@ -44,6 +45,7 @@ public:
     FluidSolver *fluid;
     GLuint CameraRight_worldspace_ID, CameraUp_worldspace_ID,  ViewProjMatrixID, programID, TextureID, programIDGeometry, geomMatrixID;
     GLuint elementbuffer, cubevertexbuffer;
+    GLubyte* g_particule_color_data;
 
     GLFWwindow* window;
 

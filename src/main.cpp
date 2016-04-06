@@ -11,11 +11,11 @@ int main()
     scene.parseScene(filename, scene);
     int width = 1024;
     int height = 768;
-    Viewer *viewer = new Viewer(width, height, scene);
+    Viewer viewer(width, height, scene);
 
-    viewer->initializeGL();
-    viewer->initializeShader();
-    viewer->display();
+    viewer.initializeGL();
+    viewer.initializeShader();
+    viewer.display();
 
     return 0;
 }
