@@ -11,8 +11,8 @@
 	},
 	"particleSeparation" : 0.1,
 	"grid" : {
-		"boundX" : 5,
-		"boundY" : 5, 
-		"boundZ" : 5
+		"boundX" : 50,
+		"boundY" : 50, 
+		"boundZ" : 50
 	}
 }
