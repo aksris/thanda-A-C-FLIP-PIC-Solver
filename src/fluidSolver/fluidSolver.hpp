@@ -108,7 +108,7 @@ public:
 
     void CalculateGravityToCell(float delta);
 
-    void insertCoefficient(int id, int i, int j, int k, double w, std::vector<Eigen::Triplet<double> > &coeffs, int n);
+    void insertCoefficient(int id, int i, int j, int k, double w, std::vector<Eigen::Triplet<double> > &coeffs);
 
     void calculateNewGridVelocities();
     void setBoundaryVelocitiesToZero();

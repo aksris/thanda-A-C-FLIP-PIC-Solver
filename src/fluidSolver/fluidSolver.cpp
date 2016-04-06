@@ -162,9 +162,10 @@ void FluidSolver::genParticles(float particle_separation, float boundx, float bo
                 iter=0;
                 while(iter < SEED){
 //                    P->pos = vec3(1.8,1.8,1.6);
+                    p.gridIdx = ivec3(i,j,k);
+//                    std::cout << "CREATED FLUID at " << i << " " << j << " " << k << " " << std::endl;
                     p.pos = vec3(rand(i,i+1), rand(j,j+1), rand(k, k+1)) * this->cellSize;
                     p.speed = vec3(0.f, 0.f, 0.f);
-                    p.gridIdx = vec3(i,j,k);
                     ParticlesContainer.push_back(p);
                     iter++;
                 }
@@ -280,20 +281,23 @@ void FluidSolver::CalculateGravityToCell(float delta){
 
 void FluidSolver::storeParticleVelocityToGrid(){
     //for all the grid indices, calculate vel_u, vel_v, vel_w
-    vec3 index, pos, r; int x,y,z;
+    ivec3 index;
+    vec3 pos, r;
+    int x,y,z;
     float h = this->cellSize, weight = 0.f;
     float fract_partx,fract_party,fract_partz;
     
     for(int i = 0; i < ParticlesContainer.size(); ++i){
         
         const Particle& par = ParticlesContainer.at(i);
+        // this particle may have been advected in the previous step and it's gridIdx should be updated now
         
         vec3 w_pos = par.pos;
-        index = par.gridIdx;
-        x = index.x, y = index.y, z = index.z;
-        weight = 0.f;
+        index = ivec3(floor(par.pos.x/cellSize), floor(par.pos.y/cellSize), floor(par.pos.z/cellSize));
+        ParticlesContainer.at(i).gridIdx = index;
         
-        grid->P->setCellMark(x, y, z, FLUID );
+        grid->P->setCellMark(index.x, index.y, index.z, FLUID);
+//        std::cout << "MARKED FLUID at " << index.x << " " << index.y << " " << index.z << " " << std::endl;
 
         //################## X direction #############################################
         pos = grid->vel_U->worldToLocal(w_pos);
@@ -442,6 +446,20 @@ void FluidSolver::storeParticleVelocityToGrid(){
             }
         }
     }
+    
+#ifdef DEBUG
+    for(int i = 0; i < resolution.x; ++i){
+        for(int j = 0; j < resolution.y ; ++j){
+            for(int k = 0; k < resolution.z; ++k){
+                if (grid->P->getCellMark(i,j,k) == FLUID) {
+                    std::cout << "FLUID " << i << " " << j << " " << k << " " << std::endl;
+                }
+            }
+        }
+    }
+    std::cout<<"MARKED FLUID CELLS"<<std::endl;
+#endif
+
 }
 
 //void FluidSolver::RepositionParticles(){
@@ -512,8 +530,7 @@ void FluidSolver::initializeMarkerGrid(){
 }
 
 
-void FluidSolver::insertCoefficient(int id, int i, int j, int k, double w, std::vector<Eigen::Triplet<double>> &coeffs, int n){
-    n = 5;
+void FluidSolver::insertCoefficient(int id, int i, int j, int k, double w, std::vector<Eigen::Triplet<double>> &coeffs){
     int id1 = k * resolution.x * resolution.y + j * resolution.x + i;
     coeffs.push_back(Eigen::Triplet<double>(id, id1, w));
 }
@@ -530,11 +547,11 @@ void FluidSolver::buildMatrixA(std::vector<Eigen::Triplet<double>>& coefficients
                     //x
                     if(i > 0 && grid->P->getCellMark(i-1,j,k) == FLUID){
                         Adiag += scale;
-                        insertCoefficient(id, i-1,j,k, -scale, coefficients, n);
+                        insertCoefficient(id, i-1,j,k, -scale, coefficients);
                     }
                     if(i < n && grid->P->getCellMark(i+1,j,k) == FLUID){
                         Adiag += scale;
-                        insertCoefficient(id, i+1,j,k, -scale, coefficients, n);
+                        insertCoefficient(id, i+1,j,k, -scale, coefficients);
                     }
                     if(i > 0 && grid->P->getCellMark(i-1,j,k) == AIR){
                         Adiag += scale;
@@ -546,11 +563,11 @@ void FluidSolver::buildMatrixA(std::vector<Eigen::Triplet<double>>& coefficients
                     //y
                     if(j > 0 && grid->P->getCellMark(i,j-1,k) == FLUID){
                         Adiag += scale;
-                        insertCoefficient(id, i,j-1,k, -scale, coefficients, n);
+                        insertCoefficient(id, i,j-1,k, -scale, coefficients);
                     }
                     if(j < n && grid->P->getCellMark(i,j+1,k) == FLUID){
                         Adiag += scale;
-                        insertCoefficient(id, i,j+1,k, -scale, coefficients, n);
+                        insertCoefficient(id, i,j+1,k, -scale, coefficients);
                     }
                     if(j > 0 && grid->P->getCellMark(i,j-1,k) == AIR){
                         Adiag += scale;
@@ -562,11 +579,11 @@ void FluidSolver::buildMatrixA(std::vector<Eigen::Triplet<double>>& coefficients
                     //z
                     if(k > 0 && grid->P->getCellMark(i,j,k-1) == FLUID){
                         Adiag += scale;
-                        insertCoefficient(id, i,j,k-1, -scale, coefficients, n);
+                        insertCoefficient(id, i,j,k-1, -scale, coefficients);
                     }
                     if(k < n && grid->P->getCellMark(i,j,k+1) == FLUID){
                         Adiag += scale;
-                        insertCoefficient(id, i,j,k+1, -scale, coefficients, n);
+                        insertCoefficient(id, i,j,k+1, -scale, coefficients);
                     }
                     if(k > 0 && grid->P->getCellMark(i,j,k-1) == AIR){
                         Adiag += scale;
@@ -575,7 +592,7 @@ void FluidSolver::buildMatrixA(std::vector<Eigen::Triplet<double>>& coefficients
                         Adiag += scale;
                     }
                 }
-                insertCoefficient(id, i,j,k, Adiag, coefficients, n);
+                insertCoefficient(id, i,j,k, Adiag, coefficients);
             }
         }
     }
@@ -626,19 +643,18 @@ void FluidSolver::buildDivergences(Eigen::VectorXd& rhs){
 }
 
 void FluidSolver::fillPressureGrid(Eigen::VectorXd x){
-    int iter = 0;
+    int iter = 0; int id = 0;
     for(int i = 0; i < resolution.x; ++i){
         for(int j = 0; j < resolution.y; ++j){
             for(int k = 0; k < resolution.z; ++k){
-                if (std::isnan(x[iter]))
-                    std::cout<<"ERROR with PCG"<<std::endl;
-//                grid->P->setCell(i,j,k, max((float)x[iter++], 0.f));
-//                grid->P->setCell(i,j,k, (float)x[iter++]);
-                grid->P->setCell(i,j,k, max((float)x[iter++], 0.f));
-//#ifdef DEBUG
                 if(grid->P->getCellMark(i,j,k) == FLUID){
-                    float x = (*grid->P)(i,j,k);
-                    std::cout << "Pressure at "<< i << " "<< j << " " << k << ": "<<x<< std::endl;
+                    id = k*resolution.x*resolution.y + j*resolution.x + i;
+                    if (std::isnan(x[id]))
+                    std::cout<<"ERROR with PCG"<<std::endl;
+                    grid->P->setCell(i,j,k, max((float)x[id], 0.f));
+//#ifdef DEBUG
+//                    float x = (*grid->P)(i,j,k);
+//                    std::cout << "Pressure at "<< i << " "<< j << " " << k << ": "<<x<< std::endl;
                 }
 //#endif
             }
@@ -676,11 +692,9 @@ void FluidSolver::ProjectPressure(){
     // fill eigen vector into grid.P
     fillPressureGrid(p);
 
-//    std::cout << u(31) << std::endl;
-
     SubtractPressureGradient();
 //    buildDivergences(rhs);
-//    std::cout << u(31) << std::endl;
+//    std::cout << (*grid->P)(4,1,1) << std::endl;
 //    int a =1;
 }
 
@@ -694,7 +708,6 @@ void FluidSolver::SubtractPressureGradient(){
     int z = resolution.z;
 
     //loop over i,j,k
-    //update vel_U
     for(int i = 0; i < x; ++i){
         for(int j = 0; j < y; ++j){
             for(int k = 0; k < z; ++k){
@@ -1044,6 +1057,7 @@ void FluidSolver::clearGrid(){
     std::fill(grid->vel_V->data.begin(), grid->vel_V->data.end(), 0.f);
     std::fill(grid->vel_W->data.begin(), grid->vel_W->data.end(), 0.f);
     std::fill(grid->P->data.begin(), grid->P->data.end(), 0.f);
+    std::fill(grid->P->mData.begin(), grid->P->mData.end(),0);
 }
 
 void FluidSolver::step(){
@@ -1054,9 +1068,9 @@ void FluidSolver::step(){
 //#define DEBUG
     
     // Step 3 - Store Particle Velocity at current time step to MACGrid
-    int i = this->ParticlesContainer.at(0).gridIdx[0];
-    int j = this->ParticlesContainer.at(0).gridIdx[1];
-    int k = this->ParticlesContainer.at(0).gridIdx[2];
+//    int i = this->ParticlesContainer.at(0).gridIdx[0];
+//    int j = this->ParticlesContainer.at(0).gridIdx[1];
+//    int k = this->ParticlesContainer.at(0).gridIdx[2];
     
     this->storeParticleVelocityToGrid();
 #ifdef DEBUG
