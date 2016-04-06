@@ -275,8 +275,11 @@ void FluidSolver::storeParticleVelocityToGrid(){
     float h = this->cellSize, weight = 0.f;
     float fract_partx,fract_party,fract_partz;
     for(int i = 0; i < ParticlesContainer.size(); ++i){
-        vec3 w_pos = ParticlesContainer.at(i).pos;
-        index = ParticlesContainer.at(i).gridIdx;
+        
+        const Particle& par = ParticlesContainer.at(i);
+        
+        vec3 w_pos = par.pos;
+        index = par.gridIdx;
         x = index.x, y = index.y, z = index.z;
         weight = 0.f;
         grid->P->setCellMark(x, y, z, FLUID );
@@ -290,35 +293,35 @@ void FluidSolver::storeParticleVelocityToGrid(){
 
         //splatting to all neighbors that are/will be involved in trilerp
         weight = (1-fract_partx)*(1-fract_party)*(1-fract_partz);
-        grid->vel_U->setCellAdd(x, y, z, ParticlesContainer.at(i).speed.x * weight);
+        grid->vel_U->setCellAdd(x, y, z, par.speed.x * weight);
         grid->save_kernel_wt_U->setCellAdd(x, y, z, weight);
 
         weight = (fract_partx)*(1-fract_party)*(1-fract_partz);
-        grid->vel_U->setCellAdd(x+1, y, z, ParticlesContainer.at(i).speed.x * weight);
+        grid->vel_U->setCellAdd(x+1, y, z, par.speed.x * weight);
         grid->save_kernel_wt_U->setCellAdd(x+1, y, z, weight);
 
         weight = (fract_partx)*(fract_party)*(1-fract_partz);
-        grid->vel_U->setCellAdd(x+1, y+1, z, ParticlesContainer.at(i).speed.x * weight);
+        grid->vel_U->setCellAdd(x+1, y+1, z, par.speed.x * weight);
         grid->save_kernel_wt_U->setCellAdd(x+1, y+1, z, weight);
 
         weight = (1-fract_partx)*(fract_party)*(1-fract_partz);
-        grid->vel_U->setCellAdd(x, y+1, z, ParticlesContainer.at(i).speed.x * weight);
+        grid->vel_U->setCellAdd(x, y+1, z, par.speed.x * weight);
         grid->save_kernel_wt_U->setCellAdd(x, y+1, z, weight);
 
         weight = (1-fract_partx)*(fract_party)*(fract_partz);
-        grid->vel_U->setCellAdd(x, y+1, z+1, ParticlesContainer.at(i).speed.x * weight);
+        grid->vel_U->setCellAdd(x, y+1, z+1, par.speed.x * weight);
         grid->save_kernel_wt_U->setCellAdd(x, y+1, z+1, weight);
 
         weight = (1-fract_partx)*(1-fract_party)*(fract_partz);
-        grid->vel_U->setCellAdd(x, y, z+1, ParticlesContainer.at(i).speed.x * weight );
+        grid->vel_U->setCellAdd(x, y, z+1, par.speed.x * weight );
         grid->save_kernel_wt_U->setCellAdd(x, y, z+1, weight);
 
         weight = (fract_partx)*(1-fract_party)*(fract_partz);
-        grid->vel_U->setCellAdd(x+1, y, z+1, ParticlesContainer.at(i).speed.x * weight);
+        grid->vel_U->setCellAdd(x+1, y, z+1, par.speed.x * weight);
         grid->save_kernel_wt_U->setCellAdd(x+1, y, z+1, weight);
 
         weight = (fract_partx)*(fract_party)*(fract_partz);
-        grid->vel_U->setCellAdd(x+1, y+1, z+1, ParticlesContainer.at(i).speed.x * weight);
+        grid->vel_U->setCellAdd(x+1, y+1, z+1, par.speed.x * weight);
         grid->save_kernel_wt_U->setCellAdd(x+1, y+1, z+1, weight);
 
         //######################## y direction splatting #####################################
@@ -329,7 +332,7 @@ void FluidSolver::storeParticleVelocityToGrid(){
         fract_partz = (pos[2] - z);
 
         //splatting to all neighbors that are/will be involved in trilerp
-        float speedY = ParticlesContainer.at(i).speed.y;
+        float speedY = par.speed.y;
         weight = (1-fract_partx)*(1-fract_party)*(1-fract_partz);
         grid->vel_V->setCellAdd(x, y, z, speedY * weight);
         grid->save_kernel_wt_V->setCellAdd(x, y, z, weight);
@@ -371,35 +374,35 @@ void FluidSolver::storeParticleVelocityToGrid(){
 
         //splatting to all neighbors that are/will be involved in trilerp
         weight = (1-fract_partx)*(1-fract_party)*(1-fract_partz);
-        grid->vel_W->setCellAdd(x, y, z, ParticlesContainer.at(i).speed.z * weight);
+        grid->vel_W->setCellAdd(x, y, z, par.speed.z * weight);
         grid->save_kernel_wt_W->setCellAdd(x, y, z, weight);
 
         weight = (fract_partx)*(1-fract_party)*(1-fract_partz);
-        grid->vel_W->setCellAdd(x+1, y, z, ParticlesContainer.at(i).speed.z * weight);
+        grid->vel_W->setCellAdd(x+1, y, z, par.speed.z * weight);
         grid->save_kernel_wt_W->setCellAdd(x+1, y, z, weight);
 
         weight = (fract_partx)*(fract_party)*(1-fract_partz);
-        grid->vel_W->setCellAdd(x+1, y+1, z, ParticlesContainer.at(i).speed.z * weight);
+        grid->vel_W->setCellAdd(x+1, y+1, z, par.speed.z * weight);
         grid->save_kernel_wt_W->setCellAdd(x+1, y+1, z, weight);
 
         weight = (1-fract_partx)*(fract_party)*(1-fract_partz);
-        grid->vel_W->setCellAdd(x, y+1, z, ParticlesContainer.at(i).speed.z * weight);
+        grid->vel_W->setCellAdd(x, y+1, z, par.speed.z * weight);
         grid->save_kernel_wt_W->setCellAdd(x, y+1, z, weight);
 
         weight = (1-fract_partx)*(fract_party)*(fract_partz);
-        grid->vel_W->setCellAdd(x, y+1, z+1, ParticlesContainer.at(i).speed.z * weight);
+        grid->vel_W->setCellAdd(x, y+1, z+1, par.speed.z * weight);
         grid->save_kernel_wt_W->setCellAdd(x, y+1, z+1, weight);
 
         weight = (1-fract_partx)*(1-fract_party)*(fract_partz);
-        grid->vel_W->setCellAdd(x, y, z+1, ParticlesContainer.at(i).speed.z * weight );
+        grid->vel_W->setCellAdd(x, y, z+1, par.speed.z * weight );
         grid->save_kernel_wt_W->setCellAdd(x, y, z+1, weight);
 
         weight = (fract_partx)*(1-fract_party)*(fract_partz);
-        grid->vel_W->setCellAdd(x+1, y, z+1, ParticlesContainer.at(i).speed.z * weight);
+        grid->vel_W->setCellAdd(x+1, y, z+1, par.speed.z * weight);
         grid->save_kernel_wt_W->setCellAdd(x+1, y, z+1, weight);
 
         weight = (fract_partx)*(fract_party)*(fract_partz);
-        grid->vel_W->setCellAdd(x+1, y+1, z+1, ParticlesContainer.at(i).speed.z * weight);
+        grid->vel_W->setCellAdd(x+1, y+1, z+1, par.speed.z * weight);
         grid->save_kernel_wt_W->setCellAdd(x+1, y+1, z+1, weight);
 
     }
@@ -430,19 +433,27 @@ void FluidSolver::storeParticleVelocityToGrid(){
     }
 }
 
-//void FluidSolver::RepositionParticles(){
-//    for(auto p : reposition_map){
-//        if(p.first->gridIdx.x < 0 || p.first->gridIdx.x > resolution.x - 1 ||
-//                p.first->gridIdx.y < 0 || p.first->gridIdx.y > resolution.y - 1 ||
-//                p.first->gridIdx.z < 0 || p.first->gridIdx.z > resolution.z - 1){
-//            int a = 1;
-//        }
-//        p.first->pos = vec3(p.second) * cellSize;
-//        p.first->pos += vec3(cellSize*0.5f + EPSILON);
-//        p.first->gridIdx = vec3(p.second);
-//        grid->P->setCellMark(p.second.x, p.second.y, p.second.z, FLUID);
-//    }
-//}
+void FluidSolver::RepositionParticles(){
+    for(auto i : reposition_map){
+        Particle& p = ParticlesContainer.at(i.first);
+#ifdef DEBUG
+        if(p.gridIdx.x < 0 || p.gridIdx.x > resolution.x - 1 ||
+                p.gridIdx.y < 0 || p.gridIdx.y > resolution.y - 1 ||
+                p.gridIdx.z < 0 || p.gridIdx.z > resolution.z - 1){
+            int a = 1;
+        }
+#endif
+
+        // change particle info
+        p.pos = vec3(i.second) * cellSize + vec3(rand(0,1));
+        p.gridIdx = vec3(i.second);
+        
+        // mark new grid cell where particle was repositioned to
+        this->grid->P->setCellMark(i.second.x, i.second.y, i.second.z, FLUID);
+    }
+    
+    reposition_map.clear();
+}
 
 void FluidSolver::initializeMarkerGrid(){
     int x = resolution.x;
@@ -465,8 +476,8 @@ void FluidSolver::initializeMarkerGrid(){
         }
     }
 
-    for(Particle p : ParticlesContainer){
-        int i = p.gridIdx.x, j = p.gridIdx.y, k = p.gridIdx.z;
+    for(int p = 0; p< ParticlesContainer.size(); ++p){
+        int i = ParticlesContainer.at(p).gridIdx.x, j = ParticlesContainer.at(p).gridIdx.y, k = ParticlesContainer.at(p).gridIdx.z;
         vec3 list[6] = { vec3(i-1,j,k), vec3(i+1,j,k),
                          vec3(i,j-1,k), vec3(i,j+1,k),
                          vec3(i,j,k-1), vec3(i,j,k+1)
@@ -476,7 +487,7 @@ void FluidSolver::initializeMarkerGrid(){
                 if(list[n][0] >= 0 && list[n][0]< x && list[n][1] >= 0 &&
                         list[n][1] < y && list[n][2] >= 0 && list[n][2] < z ){
                     if(grid->P->getCellMark(list[n]) != SOLID){
-                        reposition_map[&p] = ivec3(list[n][0], list[n][1], list[n][2]);
+                        reposition_map[p] = ivec3(list[n][0], list[n][1], list[n][2]);
                         break;
                     }
                 }
@@ -952,7 +963,7 @@ void FluidSolver::clearGrid(){
 void FluidSolver::step(){
 
     this->initializeMarkerGrid();
-    this->RepositionParticles();
+//    this->RepositionParticles();
 
 //#define DEBUG
     
@@ -963,7 +974,7 @@ void FluidSolver::step(){
     
     this->storeParticleVelocityToGrid();
 #ifdef DEBUG
-        std::cout << "[thanda] storeParticleVelocityToGrid Iteration" << std::endl;
+    std::cout << "[thanda] storeParticleVelocityToGrid Iteration" << std::endl;
     std::cout << "[thanda] Cell Type :"<< this->grid->P->getCellMark(i, j, k) << " at idx " << i << " "<< j << " "<< k << " : "<< (*grid->vel_V)(i,j,k) << std::endl;
     std::cout << "[thanda] Cell Type :"<< this->grid->P->getCellMark(i, j+1, k) << " at idx " << i << " "<< j+1 << " "<< k << " : "<< (*grid->vel_V)(i,j+1,k) << std::endl;
     std::cout << "[thanda] Cell Type :"<< this->grid->P->getCellMark(i+1, j, k) << " at idx " << i+1 << " "<< j << " "<< k << " : "<< (*grid->vel_V)(i+1,j,k) << std::endl;
@@ -1045,7 +1056,7 @@ void FluidSolver::step(){
         particle.gridIdx = ivec3(min(max(particle.pos.x, 0.f), containerBounds.x),
                                  min(max(particle.pos.y, 0.f), containerBounds.y),
                                  min(max(particle.pos.z, 0.f), containerBounds.z));
-        grid->P->setCellMark(particle.gridIdx.x, particle.gridIdx.y, particle.gridIdx.z, FLUID );
+//        grid->P->setCellMark(particle.gridIdx.x, particle.gridIdx.y, particle.gridIdx.z, FLUID );
     }
     this->clearGrid();
 }
