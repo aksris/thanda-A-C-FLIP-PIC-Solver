@@ -122,7 +122,7 @@ public:
     void particlesInit();
     void genParticles(float particle_separation, float boundx, float boundy, float boundz);
 
-    void RepositionParticles();
+//    void RepositionParticles();
     
 
 

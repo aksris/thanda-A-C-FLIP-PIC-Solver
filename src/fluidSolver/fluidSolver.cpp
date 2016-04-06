@@ -84,7 +84,7 @@ MACGrid& MACGrid::operator =(const MACGrid& val){
 FluidSolver::FluidSolver(const ivec3& resolution, const vec3& containerBounds){
     LastUsedParticle = 0;
     MaxParticles = 200000;
-    delta = (1.f/24);
+    delta = 0.1f;
 
     this->resolution = resolution;
     this->containerBounds = containerBounds;
@@ -274,6 +274,7 @@ void FluidSolver::storeParticleVelocityToGrid(){
     vec3 index, pos, r; int x,y,z;
     float h = this->cellSize, weight = 0.f;
     float fract_partx,fract_party,fract_partz;
+    
     for(int i = 0; i < ParticlesContainer.size(); ++i){
         
         const Particle& par = ParticlesContainer.at(i);
@@ -282,6 +283,7 @@ void FluidSolver::storeParticleVelocityToGrid(){
         index = par.gridIdx;
         x = index.x, y = index.y, z = index.z;
         weight = 0.f;
+        
         grid->P->setCellMark(x, y, z, FLUID );
 
         //################## X direction #############################################
@@ -433,27 +435,27 @@ void FluidSolver::storeParticleVelocityToGrid(){
     }
 }
 
-void FluidSolver::RepositionParticles(){
-    for(auto i : reposition_map){
-        Particle& p = ParticlesContainer.at(i.first);
-#ifdef DEBUG
-        if(p.gridIdx.x < 0 || p.gridIdx.x > resolution.x - 1 ||
-                p.gridIdx.y < 0 || p.gridIdx.y > resolution.y - 1 ||
-                p.gridIdx.z < 0 || p.gridIdx.z > resolution.z - 1){
-            int a = 1;
-        }
-#endif
-
-        // change particle info
-        p.pos = vec3(i.second) * cellSize + vec3(rand(0,1));
-        p.gridIdx = vec3(i.second);
-        
-        // mark new grid cell where particle was repositioned to
-        this->grid->P->setCellMark(i.second.x, i.second.y, i.second.z, FLUID);
-    }
-    
-    reposition_map.clear();
-}
+//void FluidSolver::RepositionParticles(){
+//    for(auto i : reposition_map){
+//        Particle& p = ParticlesContainer.at(i.first);
+//#ifdef DEBUG
+//        if(p.gridIdx.x < 0 || p.gridIdx.x > resolution.x - 1 ||
+//                p.gridIdx.y < 0 || p.gridIdx.y > resolution.y - 1 ||
+//                p.gridIdx.z < 0 || p.gridIdx.z > resolution.z - 1){
+//            int a = 1;
+//        }
+//#endif
+//
+//        // change particle info
+//        p.pos = vec3(i.second) * cellSize + vec3(rand(0,1));
+//        p.gridIdx = vec3(i.second);
+//        
+//        // mark new grid cell where particle was repositioned to
+//        this->grid->P->setCellMark(i.second.x, i.second.y, i.second.z, FLUID);
+//    }
+//    
+//    reposition_map.clear();
+//}
 
 void FluidSolver::initializeMarkerGrid(){
     int x = resolution.x;
@@ -476,27 +478,28 @@ void FluidSolver::initializeMarkerGrid(){
         }
     }
 
-    for(int p = 0; p< ParticlesContainer.size(); ++p){
-        int i = ParticlesContainer.at(p).gridIdx.x, j = ParticlesContainer.at(p).gridIdx.y, k = ParticlesContainer.at(p).gridIdx.z;
-        vec3 list[6] = { vec3(i-1,j,k), vec3(i+1,j,k),
-                         vec3(i,j-1,k), vec3(i,j+1,k),
-                         vec3(i,j,k-1), vec3(i,j,k+1)
-        };
-        if(grid->P->getCellMark(i,j,k) == SOLID){
-            for(int n = 0; n < 6; ++n){
-                if(list[n][0] >= 0 && list[n][0]< x && list[n][1] >= 0 &&
-                        list[n][1] < y && list[n][2] >= 0 && list[n][2] < z ){
-                    if(grid->P->getCellMark(list[n]) != SOLID){
-                        reposition_map[p] = ivec3(list[n][0], list[n][1], list[n][2]);
-                        break;
-                    }
-                }
-            }
-        }
-        else{
-            grid->P->setCellMark(i,j,k, FLUID );
-        }
-    }
+    // mark particles to be repositioned and the appropriate neighbor cell to reposition into
+//    for(int p = 0; p< ParticlesContainer.size(); ++p){
+//        int i = ParticlesContainer.at(p).gridIdx.x, j = ParticlesContainer.at(p).gridIdx.y, k = ParticlesContainer.at(p).gridIdx.z;
+//        vec3 list[6] = { vec3(i-1,j,k), vec3(i+1,j,k),
+//                         vec3(i,j-1,k), vec3(i,j+1,k),
+//                         vec3(i,j,k-1), vec3(i,j,k+1)
+//        };
+//        if(grid->P->getCellMark(i,j,k) == SOLID){
+//            for(int n = 0; n < 6; ++n){
+//                if(list[n][0] > 0 && list[n][0]< x-1 && list[n][1] > 0 &&
+//                        list[n][1] < y-1 && list[n][2] > 0 && list[n][2] < z-1){
+//                    if(grid->P->getCellMark(list[n]) != SOLID){
+//                        reposition_map[p] = ivec3(list[n][0], list[n][1], list[n][2]);
+//                        break;
+//                    }
+//                }
+//            }
+//        }
+//        else{
+//            grid->P->setCellMark(i,j,k, FLUID );
+//        }
+//    }
 }
 
 
@@ -524,6 +527,9 @@ void FluidSolver::buildMatrixA(std::vector<Eigen::Triplet<double>>& coefficients
                         Adiag += scale;
                         insertCoefficient(id, i+1,j,k, -scale, coefficients, n);
                     }
+                    else if(i > 0 && grid->P->getCellMark(i-1,j,k) == AIR){
+                        Adiag += scale;
+                    }
                     else if(i < n && grid->P->getCellMark(i+1,j,k) == AIR){
                         Adiag += scale;
                     }
@@ -537,6 +543,9 @@ void FluidSolver::buildMatrixA(std::vector<Eigen::Triplet<double>>& coefficients
                         Adiag += scale;
                         insertCoefficient(id, i,j+1,k, -scale, coefficients, n);
                     }
+                    else if(j > 0 && grid->P->getCellMark(i,j-1,k) == AIR){
+                        Adiag += scale;
+                    }
                     else if(j < n && grid->P->getCellMark(i,j+1,k) == AIR){
                         Adiag += scale;
                     }
@@ -549,6 +558,9 @@ void FluidSolver::buildMatrixA(std::vector<Eigen::Triplet<double>>& coefficients
                     if(k < n && grid->P->getCellMark(i,j,k+1) == FLUID){
                         Adiag += scale;
                         insertCoefficient(id, i,j,k+1, -scale, coefficients, n);
+                    }
+                    else if(k > 0 && grid->P->getCellMark(i,j,k-1) == AIR){
+                        Adiag += scale;
                     }
                     else if(k < n && grid->P->getCellMark(i,j,k+1) == AIR){
                         Adiag += scale;
@@ -729,6 +741,11 @@ vec3 FluidSolver::integratePos(const vec3& pos, const vec3& speed, const float& 
         vec3 k4 = speed * (pos + k3);
         new_pos = pos + (0.1666666f) * (k1 + 2.f * k2 + 2.f * k3 + k4);
     }
+    
+    new_pos.x = glm::clamp(new_pos.x, cellSize*1.f, cellSize*(resolution.x-1));
+    new_pos.y = glm::clamp(new_pos.y, cellSize*1.f, cellSize*(resolution.y-1));
+    new_pos.z = glm::clamp(new_pos.z, cellSize*1.f, cellSize*(resolution.z-1));
+    
     return new_pos;
 }
 
@@ -761,7 +778,9 @@ void FluidSolver::ExtrapolateVelocity(){
                 else if((i < x && (grid->P->getCellMark(i,j,k) == SOLID)) &&
                         (i > 0 && (grid->P->getCellMark(i-1,j,k) == SOLID )) //check if me solid and near solid
                         || (i < x && (grid->P->getCellMark(i,j,k) == AIR)) &&
-                        (i > 0 && (grid->P->getCellMark(i-1,j,k) == SOLID || grid->P->getCellMark(i-1,j,k) == AIR))) //me air, and near (solid or air)
+//                        (i > 0 && (grid->P->getCellMark(i-1,j,k) == SOLID || grid->P->getCellMark(i-1,j,k) == AIR)) // not bridson
+                        (i > 0 && (grid->P->getCellMark(i-1,j,k) == AIR)) // bridson
+                        ) //me air, and near (solid or air)
                 {
                     extrapolate_grid_U.setCellMark(i,j,k,SOLID );
                 }
@@ -774,13 +793,15 @@ void FluidSolver::ExtrapolateVelocity(){
             for(int k = 0; k < z; ++k){
                 //marking fluid or near fluid cells as FLUID
                 if((j < y && grid->P->getCellMark(i,j,k) == FLUID) || (j > 0 && grid->P->getCellMark(i,j-1,k) == FLUID)){
-                    extrapolate_grid_V.setCellMark(i,j,k, FLUID );
+                    extrapolate_grid_V.setCellMark(i,j,k, FLUID);
                 }
                 //marking solid for extrapolation
                 else if((j < y && (grid->P->getCellMark(i,j,k) == SOLID)) &&
                         (j > 0 && (grid->P->getCellMark(i,j-1,k) == SOLID )) //check if me solid and near solid
                         || (j < y && (grid->P->getCellMark(i,j,k) == AIR)) &&
-                        (j > 0 && (grid->P->getCellMark(i,j-1,k) == SOLID || grid->P->getCellMark(i,j-1,k) == AIR))) //me air, and near (solid or air)
+//                        (j > 0 && (grid->P->getCellMark(i,j-1,k) == SOLID || grid->P->getCellMark(i,j-1,k) == AIR))) //me air, and near (solid or air)
+                    (j > 0 && (grid->P->getCellMark(i,j-1,k) == AIR))) //me air, and near (solid or air)
+
                 {
                     extrapolate_grid_V.setCellMark(i,j,k,SOLID );
                 }
@@ -799,9 +820,10 @@ void FluidSolver::ExtrapolateVelocity(){
                 else if((k < z && (grid->P->getCellMark(i,j,k) == SOLID)) &&
                         (k > 0 && (grid->P->getCellMark(i,j,k-1) == SOLID )) //check if me solid and near solid
                         || (k < z && (grid->P->getCellMark(i,j,k) == AIR)) &&
-                        (k > 0 && (grid->P->getCellMark(i,j,k-1) == SOLID || grid->P->getCellMark(i,j,k-1) == AIR))) //me air, and near (solid or air)
+//                        (k > 0 && (grid->P->getCellMark(i,j,k-1) == SOLID || grid->P->getCellMark(i,j,k-1) == AIR))) //me air, and near (solid or air)
+                    (k > 0 && (grid->P->getCellMark(i,j,k-1) == AIR))) //me air, and near (solid or air)
                 {
-                    extrapolate_grid_W.setCellMark(i,j,k,SOLID );
+                    extrapolate_grid_W.setCellMark(i,j,k,SOLID);
                 }
             }
         }
@@ -892,6 +914,8 @@ void FluidSolver::ExtrapolateVelocity(){
 
         }
     }
+    
+    // on the boundary there's only 1 FLUID neighbor (+1 in the dimension) - more efficient to set just that neighbor
 }
 
 
@@ -988,18 +1012,18 @@ void FluidSolver::step(){
 #endif
     
     
-    // Step 4 - Add Body Forces like Gravity to MACGrid
+    // Step 4 - Store a temporary copy of Grid Velocities for FLIP
+    this->storeCurrentGridVelocities();
+
+    // Step 5 - Add Body Forces like Gravity to MACGrid
     this->CalculateGravityToCell(delta);
     
-    // Step 5 - Store a temporary copy of Grid Velocities for FLIP
-    this->storeCurrentGridVelocities();
-    
+    this->ExtrapolateVelocity();
     this->setBoundaryVelocitiesToZero();
     
     //pressure solve
     this->ProjectPressure();
     
-    this->setBoundaryVelocitiesToZero();
     this->ExtrapolateVelocity();
 
     // Step  - Calculate new flip & pic velocities for each particle
@@ -1017,46 +1041,46 @@ void FluidSolver::step(){
     
 
 //     Step - Collision Response
-    for(int i = 0; i < this->ParticlesContainer.size(); ++i){
-        
-        Particle& particle = this->ParticlesContainer.at(i); // careful - by reference;
-        
-        float dampingFactor = 1.f;
-        
-//            if(particle.pos.x  < EPSILON || particle.pos.x  > upperBounds.x - EPSILON)
-//            {
-//                currParticle.setVelocity(currParticle.getVelocity() * glm::vec3(-dampingFactor,1,1));
-//                currParticle.setPredictedPosition(currParticle.getPosition() + timeStep * currParticle.getVelocity());
+//    for(int i = 0; i < this->ParticlesContainer.size(); ++i){
+//        
+//        Particle& particle = this->ParticlesContainer.at(i); // careful - by reference;
+//        
+//        float dampingFactor = 1.f;
+//        
+////            if(particle.pos.x  < EPSILON || particle.pos.x  > upperBounds.x - EPSILON)
+////            {
+////                currParticle.setVelocity(currParticle.getVelocity() * glm::vec3(-dampingFactor,1,1));
+////                currParticle.setPredictedPosition(currParticle.getPosition() + timeStep * currParticle.getVelocity());
+////            }
+//            
+//        if (particle.pos.y < EPSILON){
+//            if(particle.speed.y < EPSILON){
+//                particle.speed *= (vec3(1.f, -dampingFactor, 1.f));
 //            }
-            
-        if (particle.pos.y < EPSILON){
-            if(particle.speed.y < EPSILON){
-                particle.speed *= (vec3(1.f, -dampingFactor, 1.f));
-            }
-            particle.pos.y = EPSILON ;
-            particle.pos = this->integratePos(particle.pos, particle.speed, delta, true);
-        }
-
-        else if(particle.pos.y  > containerBounds.y - EPSILON){// does not work
-            if(particle.speed.y > EPSILON){
-                particle.speed *= (vec3(1.f, -dampingFactor, 1.f));
-            }
-            particle.pos.y = containerBounds.y - EPSILON ;
-            particle.pos = this->integratePos(particle.pos, particle.speed, delta, true);
-        }
-    
-            
-//            if(particle.pos.z  < lowerBounds.z + EPSILON || particle.pos.z  > upperBounds.z - EPSILON)
-//            {
-//                currParticle.setVelocity(currParticle.getVelocity() * glm::vec3(1,1,-dampingFactor));
-//                currParticle.setPredictedPosition(currParticle.getPosition() + timeStep * currParticle.getVelocity());
+//            particle.pos.y = EPSILON ;
+//            particle.pos = this->integratePos(particle.pos, particle.speed, delta, true);
+//        }
+//
+//        else if(particle.pos.y  > containerBounds.y - EPSILON){// does not work
+//            if(particle.speed.y > EPSILON){
+//                particle.speed *= (vec3(1.f, -dampingFactor, 1.f));
 //            }
-            
-            
-        particle.gridIdx = ivec3(min(max(particle.pos.x, 0.f), containerBounds.x),
-                                 min(max(particle.pos.y, 0.f), containerBounds.y),
-                                 min(max(particle.pos.z, 0.f), containerBounds.z));
-//        grid->P->setCellMark(particle.gridIdx.x, particle.gridIdx.y, particle.gridIdx.z, FLUID );
-    }
+//            particle.pos.y = containerBounds.y - EPSILON ;
+//            particle.pos = this->integratePos(particle.pos, particle.speed, delta, true);
+//        }
+//    
+//            
+////            if(particle.pos.z  < lowerBounds.z + EPSILON || particle.pos.z  > upperBounds.z - EPSILON)
+////            {
+////                currParticle.setVelocity(currParticle.getVelocity() * glm::vec3(1,1,-dampingFactor));
+////                currParticle.setPredictedPosition(currParticle.getPosition() + timeStep * currParticle.getVelocity());
+////            }
+//            
+//            
+//        particle.gridIdx = ivec3(min(max(particle.pos.x, 0.f), containerBounds.x),
+//                                 min(max(particle.pos.y, 0.f), containerBounds.y),
+//                                 min(max(particle.pos.z, 0.f), containerBounds.z));
+////        grid->P->setCellMark(particle.gridIdx.x, particle.gridIdx.y, particle.gridIdx.z, FLUID );
+//    }
     this->clearGrid();
 }
