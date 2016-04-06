@@ -103,8 +103,8 @@ public:
     void initializeMarkerGrid();
 
     void buildMatrixA(std::vector<Eigen::Triplet<double> > &coefficients, long n);
-    void buildDivergences(Eigen::VectorXd& u, int n);
-    void fillPressureGrid(Eigen::VectorXd x, int n);
+    void buildDivergences(Eigen::VectorXd& u);
+    void fillPressureGrid(Eigen::VectorXd x);
 
     void CalculateGravityToCell(float delta);
 
