@@ -4,7 +4,7 @@
 //#define DEBUG
 #define VISCOSITY 0.f
 #define EPSILON 0.00001f
-#define SEED 8
+#define SEED 2000
 
 #include "fluidSolver.hpp"
 #include "../scene/scene.hpp"
@@ -16,7 +16,7 @@ Particle::Particle(){
     g = 0;
     b = 220;
     a = 230;
-    size = 0.1f;
+    size = 0.05f;
     angle = 45.f;
     mass = 10.f;
     life = 1.f;
@@ -156,9 +156,9 @@ float rand(int LO, int HI){
 void FluidSolver::genParticles(float particle_separation, float boundx, float boundy, float boundz){
     Particle p;
     int iter;
-    for(int k = 2; k < (int)boundz+1; k++){
+    for(int k = 1; k < (int)boundz; k++){
         for(int j = 2; j < (int)boundy+1; j++){
-            for(int i = 2; i < (int)boundx+1; i++){
+            for(int i = 1; i < (int)boundx; i++){
                 iter=0;
                 while(iter < SEED){
 //                    P->pos = vec3(1.8,1.8,1.6);
@@ -180,9 +180,9 @@ void FluidSolver::calculateDensity(Particle &p){
 }
 
 void FluidSolver::FlipSolve(){
-    int x = grid->P->resolution.x;
-    int y = grid->P->resolution.y;
-    int z = grid->P->resolution.z;
+    int x = resolution.x;
+    int y = resolution.y;
+    int z = resolution.z;
     for(int k = 0; k < z; ++k){
         for(int j = 0; j < y; ++j){
             for(int i = 0; i < x + 1; ++i){
@@ -209,9 +209,9 @@ void FluidSolver::FlipSolve(){
     //for every particle, set the change in velocity + current particle velocity
     //interpolate
     for(int i = 0; i < particle_save.size(); i++){
-        particle_save.at(i).speed.x = grid->flip_vel_U->interpolate(particle_save.at(i).pos);
-        particle_save.at(i).speed.y = grid->flip_vel_V->interpolate(particle_save.at(i).pos);
-        particle_save.at(i).speed.z = grid->flip_vel_W->interpolate(particle_save.at(i).pos);
+        particle_save.at(i).speed.x += grid->flip_vel_U->interpolate(particle_save.at(i).pos);
+        particle_save.at(i).speed.y += grid->flip_vel_V->interpolate(particle_save.at(i).pos);
+        particle_save.at(i).speed.z += grid->flip_vel_W->interpolate(particle_save.at(i).pos);
     }
 
 }
@@ -513,12 +513,12 @@ void FluidSolver::insertCoefficient(int id, int i, int j, int k, double w, std::
 }
 
 void FluidSolver::buildMatrixA(std::vector<Eigen::Triplet<double>>& coefficients, long n){
-    float density = 1000.f;
+    float density = 1.f;
     for(int k = 0; k < resolution.z; ++k){
         for(int j = 0; j < resolution.y; ++j){
             for(int i = 0; i < resolution.x; ++i){
                 int id = k * resolution.x * resolution.y + j * resolution.x + i; //id for matrix
-                float scale = delta / (density * cellSize * cellSize);
+                float scale = 1.f / (cellSize * cellSize);
                 float Adiag = 0.f;
                 if(grid->P->getCellMark(i,j,k) == FLUID){
                     //x
@@ -533,7 +533,7 @@ void FluidSolver::buildMatrixA(std::vector<Eigen::Triplet<double>>& coefficients
                     if(i > 0 && grid->P->getCellMark(i-1,j,k) == AIR){
                         Adiag += scale;
                     }
-                    if(i < n && grid->P->getCellMark(i+1,j,k) == AIR){
+                    if(i < n && grid->P->getCellMark(i+1,j,k) == AIR){ //checking Aplusi, so both sides of the cell
                         Adiag += scale;
                     }
 
@@ -583,7 +583,7 @@ void FluidSolver::buildDivergences(Eigen::VectorXd& rhs){
             for(int i = 0; i < resolution.x; ++i){
                 if(grid->P->getCellMark(i,j,k) == FLUID){
                     int id = k * resolution.x * resolution.y + j * resolution.x + i;
-                    divergence =scale * (
+                    divergence = scale * (
                                         (*grid->vel_U)(i+1, j, k) -
                                         (*grid->vel_U)(i, j, k)
                                          +
@@ -593,26 +593,28 @@ void FluidSolver::buildDivergences(Eigen::VectorXd& rhs){
                                         (*grid->vel_W)(i, j, k+1) -
                                         (*grid->vel_W)(i, j, k)
                                         );
-#ifdef DEBUG
-                    if(id == 31){
+//#ifdef DEBUG
+                    if(id == 38){
                         std::cout << (*grid->vel_U)(i+1, j, k) << ", " <<
                                      (*grid->vel_U)(i, j, k)  << ", " <<
                                      (*grid->vel_V)(i, j+1, k) << ", " <<
                                      (*grid->vel_V)(i, j, k)    << ", " <<
                                      (*grid->vel_W)(i, j, k+1) << ", " <<
-                                     (*grid->vel_W)(i, j, k) << std::endl;
+                                     (*grid->vel_W)(i, j, k) << "\t" <<
+                                        divergence << std::endl;
                     }
-#endif
+//#endif
                     rhs[id] = -divergence;
                     
-                    if (grid->P->getCellMark(i-1, j, k)==SOLID) rhs[id] -= scale * (*grid->vel_U)(i, j, k);
-                    if (grid->P->getCellMark(i+1, j, k)==SOLID) rhs[id] += scale * (*grid->vel_U)(i+1, j, k);
+//                    if (grid->P->getCellMark(i-1, j, k)==SOLID) rhs[id] -= scale * (*grid->vel_U)(i, j, k);
+//                    if (grid->P->getCellMark(i+1, j, k)==SOLID) rhs[id] += scale * (*grid->vel_U)(i+1, j, k);
                     
-                    if (grid->P->getCellMark(i, j-1, k)==SOLID) rhs[id] -= scale * (*grid->vel_V)(i, j, k);
-                    if (grid->P->getCellMark(i, j+1, k)==SOLID) rhs[id] += scale * (*grid->vel_V)(i, j+1, k);
+//                    if (grid->P->getCellMark(i, j-1, k)==SOLID) rhs[id] -= scale * (*grid->vel_V)(i, j, k);
+//                    if (grid->P->getCellMark(i, j+1, k)==SOLID) rhs[id] += scale * (*grid->vel_V)(i, j+1, k);
 
-                    if (grid->P->getCellMark(i, j, k-1)==SOLID) rhs[id] -= scale * (*grid->vel_W)(i, j, k);
-                    if (grid->P->getCellMark(i, j, k+1)==SOLID) rhs[id] += scale * (*grid->vel_W)(i, j, k+1);
+//                    if (grid->P->getCellMark(i, j, k-1)==SOLID) rhs[id] -= scale * (*grid->vel_W)(i, j, k);
+//                    if (grid->P->getCellMark(i, j, k+1)==SOLID) rhs[id] += scale * (*grid->vel_W)(i, j, k+1);
+                    //for moving walls/solids
                 }
             }
         }
@@ -628,8 +630,8 @@ void FluidSolver::fillPressureGrid(Eigen::VectorXd x){
                     id = k*resolution.x*resolution.y + j*resolution.x + i;
                     if (std::isnan(x[id]))
                     std::cout<<"ERROR with PCG"<<std::endl;
-//                    grid->P->setCell(i,j,k, max((float)x[id], 0.f));
-                    grid->P->setCell(i,j,k, (float)x[id]);
+                    grid->P->setCell(i,j,k, ((float)x[id]));
+//                    grid->P->setCell(i,j,k, (float)x[id]);
 //#ifdef DEBUG
 //                    float x = (*grid->P)(i,j,k);
 //                    std::cout << "Pressure at "<< i << " "<< j << " " << k << ": "<<x<< std::endl;
@@ -667,19 +669,21 @@ void FluidSolver::ProjectPressure(){
     Eigen::IncompleteCholesky<double, Eigen::Lower|Eigen::Upper> pcg(A); //calls pcg.compute internally
     p = pcg.solve(rhs);
     
+//    std::cout << "PCG info: " << pcg.info() << std::endl;
+
     // fill eigen vector into grid.P
     fillPressureGrid(p);
 
     SubtractPressureGradient();
-//    buildDivergences(rhs);
-//    std::cout << (*grid->P)(4,1,1) << std::endl;
+    buildDivergences(rhs);
+    std::cout << "After pressure: " << -rhs[38] << std::endl;
 //    int a =1;
 }
 
 void FluidSolver::SubtractPressureGradient(){
-    float density = 1000.f;
+    float density = 1.f;
     float dx = cellSize;
-    float scale = delta / (density * dx);
+    float scale = 1.f / (dx);
 
     int x = resolution.x;
     int y = resolution.y;
@@ -940,12 +944,19 @@ void FluidSolver::storeCurrentGridVelocities(){
 }
 
 void FluidSolver::clearGrid(){
+
     std::fill(grid->save_kernel_wt_U->data.begin(), grid->save_kernel_wt_U->data.end(), 0.f);
     std::fill(grid->save_kernel_wt_V->data.begin(), grid->save_kernel_wt_V->data.end(), 0.f);
     std::fill(grid->save_kernel_wt_W->data.begin(), grid->save_kernel_wt_W->data.end(), 0.f);
+
     std::fill(grid->vel_U->data.begin(), grid->vel_U->data.end(), 0.f);
     std::fill(grid->vel_V->data.begin(), grid->vel_V->data.end(), 0.f);
     std::fill(grid->vel_W->data.begin(), grid->vel_W->data.end(), 0.f);
+
+    std::fill(grid->flip_vel_U->data.begin(), grid->flip_vel_U->data.end(), 0.f);
+    std::fill(grid->flip_vel_V->data.begin(), grid->flip_vel_V->data.end(), 0.f);
+    std::fill(grid->flip_vel_W->data.begin(), grid->flip_vel_W->data.end(), 0.f);
+
     std::fill(grid->P->data.begin(), grid->P->data.end(), 0.f);
     std::fill(grid->P->mData.begin(), grid->P->mData.end(),0);
 }
@@ -961,7 +972,7 @@ void FluidSolver::step(){
 //    int i = this->ParticlesContainer.at(0).gridIdx[0];
 //    int j = this->ParticlesContainer.at(0).gridIdx[1];
 //    int k = this->ParticlesContainer.at(0).gridIdx[2];
-    
+
     this->storeParticleVelocityToGrid();
 #ifdef DEBUG
     std::cout << "[thanda] storeParticleVelocityToGrid Iteration" << std::endl;
@@ -984,7 +995,7 @@ void FluidSolver::step(){
     // Step 5 - Add Body Forces like Gravity to MACGrid
     this->CalculateGravityToCell(delta);
     
-    this->ExtrapolateVelocity();
+//    this->ExtrapolateVelocity();
     this->setBoundaryVelocitiesToZero();
     
     //pressure solve
@@ -994,13 +1005,13 @@ void FluidSolver::step(){
     this->setBoundaryVelocitiesToZero();
     
     // Step  - Calculate new flip & pic velocities for each particle
-//    this->FlipSolve();
+    this->FlipSolve();
     this->PicSolve();
 
     // Step - Lerp(FLIPVelocity, PICVelocity, 0.95)
     for(int i = 0; i < this->ParticlesContainer.size(); ++i){
         this->ParticlesContainer.at(i).speed = (1.f - VISCOSITY) * this->particle_save_pic.at(i).speed;
-//        + VISCOSITY * this->particle_save.at(i).speed;
+//         VISCOSITY * this->particle_save.at(i).speed;
         this->ParticlesContainer.at(i).pos = this->integratePos(this->ParticlesContainer.at(i).pos,
                                                                 this->ParticlesContainer.at(i).speed, delta, true );
     }

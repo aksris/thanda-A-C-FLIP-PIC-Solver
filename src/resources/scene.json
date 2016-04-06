@@ -1,18 +1,18 @@
 {
 	"containerDim" : {
-       	"scaleX" : 4.0,
-		"scaleY" : 4.0,
-		"scaleZ" : 4.0
+       	"scaleX" : 2.0,
+		"scaleY" : 2.0,
+		"scaleZ" : 2.0
 	},
 	"particleDim" : {
         "boundX" : 3,
-        "boundY" : 3,
+        "boundY" : 2,
         "boundZ" : 3
 	},
 	"particleSeparation" : 0.1,
 	"grid" : {
-		"boundX" : 50,
-		"boundY" : 50, 
-		"boundZ" : 50
+		"boundX" : 4,
+		"boundY" : 4, 
+		"boundZ" : 4
 	}
 }
