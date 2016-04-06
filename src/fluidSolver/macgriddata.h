@@ -20,10 +20,11 @@ public:
 
     virtual void getCell(const vec3& pt, int& i, int& j, int& k);
     int getCellMark(int i, int j, int k);
+    int getCellMark(vec3 index);
     int getCellIndex(int i, int j, int k);
     void setCell(int& i, int& j, int& k, const float val);
     void setCellAdd(const int& i,const int& j,const int& k, const float val);
-    void setCellMark(int &i, int &j, int &k, const int val, bool mark);
+    void setCellMark(int &i, int &j, int &k, const int val);
     virtual vec3 worldToLocal(const vec3& pt) const;
     virtual float interpolate(const vec3& pt);
     vec3 containerBounds;

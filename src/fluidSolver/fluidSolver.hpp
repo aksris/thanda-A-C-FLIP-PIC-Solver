@@ -82,6 +82,8 @@ public:
     std::vector<Particle> particle_save;
     std::vector<Particle> particle_save_pic;//to save particle velocity
 
+    std::map<Particle*, ivec3> reposition_map;
+
     void constructMACGrid(const Scene& scene);
     void initMACGrid(Particle &p);
     void storeParticleVelocityToGrid();
@@ -119,6 +121,8 @@ public:
     void sortParticles();
     void particlesInit();
     void genParticles(float particle_separation, float boundx, float boundy, float boundz);
+
+//    void RepositionParticles();
     
 
 

@@ -78,6 +78,10 @@ void MACGridData::getCell(const vec3 &pt, int &i, int &j, int &k){
     k = (int) (posL[2]/CellSize);
 }
 
+int MACGridData::getCellMark(vec3 index){
+    return getCellMark(index.x, index.y, index.z);
+}
+
 int MACGridData::getCellMark(int i, int j, int k){
     float ret = 0.f;
     if (i < 0 || j < 0 || k < 0 ||
@@ -106,7 +110,7 @@ void MACGridData::setCellAdd(const int &i, const int &j, const int &k, const flo
     data.at(x+y+z) += val;
 }
 
-void MACGridData::setCellMark(int &i, int &j, int &k, const int val, bool mark){
+void MACGridData::setCellMark(int &i, int &j, int &k, const int val){
     int x = i;
     int y = j * resolution.x;
     int z = k * resolution.x * resolution.y;
