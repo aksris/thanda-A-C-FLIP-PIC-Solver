@@ -2,10 +2,10 @@
 //  fluidSolver.cpp
 //  Thanda
 //#define DEBUG
-#define VISCOSITY 1.f
+#define VISCOSITY 0.95f
 #define EPSILON 0.00001f
-#define SEED 32
-
+#define SEED 200
+//magic number 750
 #include "fluidSolver.hpp"
 #include "../scene/scene.hpp"
 
@@ -87,8 +87,8 @@ MACGrid& MACGrid::operator =(const MACGrid& val){
 
 FluidSolver::FluidSolver(const ivec3& resolution, const vec3& containerBounds){
     LastUsedParticle = 0;
-    MaxParticles = 200000;
-    delta = 0.05f;
+    MaxParticles = 2000000;
+    delta = 0.1f;
 
     this->resolution = resolution;
     this->containerBounds = containerBounds;
@@ -662,9 +662,9 @@ void FluidSolver::ProjectPressure(){
     
     
     // solve
-    Eigen::ConjugateGradient<Eigen::SparseMatrix<double>, Eigen::Lower|Eigen::Upper, Eigen::IncompleteCholesky<double>> cg;  // performs a Cholesky factorization of A
-    cg.compute(A);
-    p = cg.solve(rhs);
+    Eigen::ConjugateGradient<Eigen::SparseMatrix<double>, Eigen::Lower|Eigen::Upper, Eigen::IncompleteCholesky<double>> pcg(A);  // performs a Cholesky factorization of A
+//    cg.compute(A);
+    p = pcg.solve(rhs);
 
 //    Eigen::IncompleteCholesky<double, Eigen::Lower|Eigen::Upper> pcg(A); //calls pcg.compute internally
 //    p = pcg.solve(rhs);
@@ -1002,25 +1002,25 @@ void FluidSolver::step(){
     
 #ifdef DEBUG
     for(int k = 0; k < resolution.z; ++k){
-        for(int j = 0; j < resolution.y; ++j){
-            for(int i = 0; i < resolution.x; ++i){
-                if (grid->P->getCellMark(i,j,k) == FLUID) {
-                    float divergence = 1.f/cellSize * (
-                                (*grid->vel_U)(i+1, j, k) -
-                                (*grid->vel_U)(i, j, k)
-                                +
-                                (*grid->vel_V)(i, j+1, k) -
-                                (*grid->vel_V)(i, j, k)
-                                +
-                                (*grid->vel_W)(i, j, k+1) -
-                                (*grid->vel_W)(i, j, k)
-                                );
-                    std::cout << "FLUID " << i << " " << j << " " << k << " " << divergence << std::endl;
+            for(int j = 0; j < resolution.y; ++j){
+                for(int i = 0; i < resolution.x; ++i){
+                    if (grid->P->getCellMark(i,j,k) == FLUID) {
+                        float divergence = 1.f/cellSize * (
+                                                           (*grid->vel_U)(i+1, j, k) -
+                                                           (*grid->vel_U)(i, j, k)
+                                                           +
+                                                           (*grid->vel_V)(i, j+1, k) -
+                                                           (*grid->vel_V)(i, j, k)
+                                                           +
+                                                           (*grid->vel_W)(i, j, k+1) -
+                                                           (*grid->vel_W)(i, j, k)
+                                                           );
+                        std::cout << "FLUID " << i << " " << j << " " << k << " " << divergence << std::endl;
+                    }
                 }
             }
         }
-    }
-    std::cout << "INCOMPRESSIBLE" << std::endl;
+        std::cout << "INCOMPRESSIBLE" << std::endl;
     #endif
     this->ExtrapolateVelocity();
     this->setBoundaryVelocitiesToZero();
@@ -1031,7 +1031,7 @@ void FluidSolver::step(){
 
     // Step - Lerp(FLIPVelocity, PICVelocity, 0.95)
     for(int i = 0; i < this->ParticlesContainer.size(); ++i){
-        this->ParticlesContainer.at(i).speed = /*(1.f - VISCOSITY) * this->particle_save_pic.at(i).speed;*/
+        this->ParticlesContainer.at(i).speed = (1.f - VISCOSITY) * this->particle_save_pic.at(i).speed +
          VISCOSITY * this->particle_save.at(i).speed;
         this->ParticlesContainer.at(i).pos = this->integratePos(this->ParticlesContainer.at(i).pos,
                                                                 this->ParticlesContainer.at(i).speed, delta, true );

@@ -49,7 +49,12 @@ void Viewer::initializeGL(){
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); // To make MacOS happy; should not be needed
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
+#ifdef FULLSCRN
+    window = glfwCreateWindow( w, h, "Thanda Hai", glfwGetPrimaryMonitor(), NULL);
+#else
     window = glfwCreateWindow( w, h, "Thanda Hai", NULL, NULL);
+#endif
+
     if( window == NULL ){
         fprintf( stderr, "Failed to open GLFW window. If you have an Intel GPU, they are not 3.3 compatible. Try the 2.1 version of the tutorials.\n" );
         getchar();
@@ -219,6 +224,8 @@ void Viewer::display(){
     // Step 2 - Particle Seeding
     fluid->genParticles(scene.particle_separation, scene.particleBounds.x, scene.particleBounds.y, scene.particleBounds.z);
 
+    string title = "To Debanshu: " + std::to_string(fluid->ParticlesContainer.size()) + " Particles";
+    glfwSetWindowTitle(window, title.c_str());
 
     double lastTime = glfwGetTime();
     do{
