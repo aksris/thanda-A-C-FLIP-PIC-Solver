@@ -2,9 +2,9 @@
 //  fluidSolver.cpp
 //  Thanda
 //#define DEBUG
-#define VISCOSITY 0.f
+#define VISCOSITY 1.f
 #define EPSILON 0.00001f
-#define SEED 2000
+#define SEED 32
 
 #include "fluidSolver.hpp"
 #include "../scene/scene.hpp"
@@ -16,7 +16,7 @@ Particle::Particle(){
     g = 0;
     b = 220;
     a = 230;
-    size = 0.05f;
+    size = 0.01f;
     angle = 45.f;
     mass = 10.f;
     life = 1.f;
@@ -88,7 +88,7 @@ MACGrid& MACGrid::operator =(const MACGrid& val){
 FluidSolver::FluidSolver(const ivec3& resolution, const vec3& containerBounds){
     LastUsedParticle = 0;
     MaxParticles = 200000;
-    delta = 0.1f;
+    delta = 0.05f;
 
     this->resolution = resolution;
     this->containerBounds = containerBounds;
@@ -157,7 +157,7 @@ void FluidSolver::genParticles(float particle_separation, float boundx, float bo
     Particle p;
     int iter;
     for(int k = 1; k < (int)boundz; k++){
-        for(int j = 2; j < (int)boundy+1; j++){
+        for(int j = 2; j < (int)boundy; j++){
             for(int i = 1; i < (int)boundx; i++){
                 iter=0;
                 while(iter < SEED){
@@ -295,16 +295,16 @@ void FluidSolver::storeParticleVelocityToGrid(){
         vec3 w_pos = par.pos;
         index = ivec3(floor(par.pos.x/cellSize), floor(par.pos.y/cellSize), floor(par.pos.z/cellSize));
         ParticlesContainer.at(i).gridIdx = index;
-        
+
         grid->P->setCellMark(index.x, index.y, index.z, FLUID);
 //        std::cout << "MARKED FLUID at " << index.x << " " << index.y << " " << index.z << " " << std::endl;
 
         //################## X direction #############################################
         pos = grid->vel_U->worldToLocal(w_pos);
-        x = pos.x, y = pos.y, z = pos.z;
-        fract_partx = (pos[0] - x);
-        fract_party = (pos[1] - y);
-        fract_partz = (pos[2] - z);
+        x = floor(pos.x/cellSize), y = floor(pos.y/cellSize), z = floor(pos.z/cellSize);
+        fract_partx = (pos[0] - x*cellSize);
+        fract_party = (pos[1] - y*cellSize);
+        fract_partz = (pos[2] - z*cellSize);
 
         //splatting to all neighbors that are/will be involved in trilerp
         weight = (1-fract_partx)*(1-fract_party)*(1-fract_partz);
@@ -341,10 +341,10 @@ void FluidSolver::storeParticleVelocityToGrid(){
 
         //######################## y direction splatting #####################################
         pos = grid->vel_V->worldToLocal(w_pos);
-        x = pos.x, y = pos.y, z = pos.z;
-        fract_partx = (pos[0] - x);
-        fract_party = (pos[1] - y);
-        fract_partz = (pos[2] - z);
+        x = floor(pos.x/cellSize), y = floor(pos.y/cellSize), z = floor(pos.z/cellSize);
+        fract_partx = (pos[0] - x*cellSize);
+        fract_party = (pos[1] - y*cellSize);
+        fract_partz = (pos[2] - z*cellSize);
 
         //splatting to all neighbors that are/will be involved in trilerp
         float speedY = par.speed.y;
@@ -382,10 +382,10 @@ void FluidSolver::storeParticleVelocityToGrid(){
 
         //############### z direction #######################################################
         pos = grid->vel_W->worldToLocal(w_pos);
-        x = pos.x, y = pos.y, z = pos.z;
-        fract_partx = (pos[0] - x);
-        fract_party = (pos[1] - y);
-        fract_partz = (pos[2] - z);
+        x = floor(pos.x/cellSize), y = floor(pos.y/cellSize), z = floor(pos.z/cellSize);
+        fract_partx = (pos[0] - x*cellSize);
+        fract_party = (pos[1] - y*cellSize);
+        fract_partz = (pos[2] - z*cellSize);
 
         //splatting to all neighbors that are/will be involved in trilerp
         weight = (1-fract_partx)*(1-fract_party)*(1-fract_partz);
@@ -593,7 +593,7 @@ void FluidSolver::buildDivergences(Eigen::VectorXd& rhs){
                                         (*grid->vel_W)(i, j, k+1) -
                                         (*grid->vel_W)(i, j, k)
                                         );
-//#ifdef DEBUG
+#ifdef DEBUG
                     if(id == 38){
                         std::cout << (*grid->vel_U)(i+1, j, k) << ", " <<
                                      (*grid->vel_U)(i, j, k)  << ", " <<
@@ -603,7 +603,7 @@ void FluidSolver::buildDivergences(Eigen::VectorXd& rhs){
                                      (*grid->vel_W)(i, j, k) << "\t" <<
                                         divergence << std::endl;
                     }
-//#endif
+#endif
                     rhs[id] = -divergence;
                     
 //                    if (grid->P->getCellMark(i-1, j, k)==SOLID) rhs[id] -= scale * (*grid->vel_U)(i, j, k);
@@ -662,21 +662,20 @@ void FluidSolver::ProjectPressure(){
     
     
     // solve
-//    Eigen::ConjugateGradient<Eigen::SparseMatrix<double>, Eigen::Lower|Eigen::Upper> cg;  // performs a Cholesky factorization of A
-//    cg.compute(A);
-//    p = cg.solve(rhs);
+    Eigen::ConjugateGradient<Eigen::SparseMatrix<double>, Eigen::Lower|Eigen::Upper, Eigen::IncompleteCholesky<double>> cg;  // performs a Cholesky factorization of A
+    cg.compute(A);
+    p = cg.solve(rhs);
 
-    Eigen::IncompleteCholesky<double, Eigen::Lower|Eigen::Upper> pcg(A); //calls pcg.compute internally
-    p = pcg.solve(rhs);
+//    Eigen::IncompleteCholesky<double, Eigen::Lower|Eigen::Upper> pcg(A); //calls pcg.compute internally
+//    p = pcg.solve(rhs);
     
 //    std::cout << "PCG info: " << pcg.info() << std::endl;
 
     // fill eigen vector into grid.P
     fillPressureGrid(p);
-
     SubtractPressureGradient();
-    buildDivergences(rhs);
-    std::cout << "After pressure: " << -rhs[38] << std::endl;
+//    buildDivergences(rhs);
+//    std::cout << "After pressure: " << -rhs[38] << std::endl;
 //    int a =1;
 }
 
@@ -747,9 +746,9 @@ vec3 FluidSolver::integratePos(const vec3& pos, const vec3& speed, const float& 
         new_pos = pos + (0.1666666f) * (k1 + 2.f * k2 + 2.f * k3 + k4);
     }
     
-    new_pos.x = glm::clamp(new_pos.x, cellSize*1.f, cellSize*(resolution.x-1));
-    new_pos.y = glm::clamp(new_pos.y, cellSize*1.f, cellSize*(resolution.y-1));
-    new_pos.z = glm::clamp(new_pos.z, cellSize*1.f, cellSize*(resolution.z-1));
+    new_pos.x = glm::clamp(new_pos.x+EPSILON, cellSize*1.f, cellSize*(resolution.x-1)-EPSILON);
+    new_pos.y = glm::clamp(new_pos.y+EPSILON, cellSize*1.f, cellSize*(resolution.y-1)-EPSILON);
+    new_pos.z = glm::clamp(new_pos.z+EPSILON, cellSize*1.f, cellSize*(resolution.z-1)-EPSILON);
     
     return new_pos;
 }
@@ -1001,6 +1000,28 @@ void FluidSolver::step(){
     //pressure solve
     this->ProjectPressure();
     
+#ifdef DEBUG
+    for(int k = 0; k < resolution.z; ++k){
+        for(int j = 0; j < resolution.y; ++j){
+            for(int i = 0; i < resolution.x; ++i){
+                if (grid->P->getCellMark(i,j,k) == FLUID) {
+                    float divergence = 1.f/cellSize * (
+                                (*grid->vel_U)(i+1, j, k) -
+                                (*grid->vel_U)(i, j, k)
+                                +
+                                (*grid->vel_V)(i, j+1, k) -
+                                (*grid->vel_V)(i, j, k)
+                                +
+                                (*grid->vel_W)(i, j, k+1) -
+                                (*grid->vel_W)(i, j, k)
+                                );
+                    std::cout << "FLUID " << i << " " << j << " " << k << " " << divergence << std::endl;
+                }
+            }
+        }
+    }
+    std::cout << "INCOMPRESSIBLE" << std::endl;
+    #endif
     this->ExtrapolateVelocity();
     this->setBoundaryVelocitiesToZero();
     
@@ -1010,55 +1031,10 @@ void FluidSolver::step(){
 
     // Step - Lerp(FLIPVelocity, PICVelocity, 0.95)
     for(int i = 0; i < this->ParticlesContainer.size(); ++i){
-        this->ParticlesContainer.at(i).speed = (1.f - VISCOSITY) * this->particle_save_pic.at(i).speed;
-//         VISCOSITY * this->particle_save.at(i).speed;
+        this->ParticlesContainer.at(i).speed = /*(1.f - VISCOSITY) * this->particle_save_pic.at(i).speed;*/
+         VISCOSITY * this->particle_save.at(i).speed;
         this->ParticlesContainer.at(i).pos = this->integratePos(this->ParticlesContainer.at(i).pos,
                                                                 this->ParticlesContainer.at(i).speed, delta, true );
     }
-
-    
-
-//     Step - Collision Response
-//    for(int i = 0; i < this->ParticlesContainer.size(); ++i){
-//        
-//        Particle& particle = this->ParticlesContainer.at(i); // careful - by reference;
-//        
-//        float dampingFactor = 1.f;
-//        
-////            if(particle.pos.x  < EPSILON || particle.pos.x  > upperBounds.x - EPSILON)
-////            {
-////                currParticle.setVelocity(currParticle.getVelocity() * glm::vec3(-dampingFactor,1,1));
-////                currParticle.setPredictedPosition(currParticle.getPosition() + timeStep * currParticle.getVelocity());
-////            }
-//            
-//        if (particle.pos.y < EPSILON){
-//            if(particle.speed.y < EPSILON){
-//                particle.speed *= (vec3(1.f, -dampingFactor, 1.f));
-//            }
-//            particle.pos.y = EPSILON ;
-//            particle.pos = this->integratePos(particle.pos, particle.speed, delta, true);
-//        }
-//
-//        else if(particle.pos.y  > containerBounds.y - EPSILON){// does not work
-//            if(particle.speed.y > EPSILON){
-//                particle.speed *= (vec3(1.f, -dampingFactor, 1.f));
-//            }
-//            particle.pos.y = containerBounds.y - EPSILON ;
-//            particle.pos = this->integratePos(particle.pos, particle.speed, delta, true);
-//        }
-//    
-//            
-////            if(particle.pos.z  < lowerBounds.z + EPSILON || particle.pos.z  > upperBounds.z - EPSILON)
-////            {
-////                currParticle.setVelocity(currParticle.getVelocity() * glm::vec3(1,1,-dampingFactor));
-////                currParticle.setPredictedPosition(currParticle.getPosition() + timeStep * currParticle.getVelocity());
-////            }
-//            
-//            
-//        particle.gridIdx = ivec3(min(max(particle.pos.x, 0.f), containerBounds.x),
-//                                 min(max(particle.pos.y, 0.f), containerBounds.y),
-//                                 min(max(particle.pos.z, 0.f), containerBounds.z));
-////        grid->P->setCellMark(particle.gridIdx.x, particle.gridIdx.y, particle.gridIdx.z, FLUID );
-//    }
     this->clearGrid();
 }
