@@ -34,15 +34,20 @@ void Viewer::initializeShader(){
    
 }
 
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode){
+    if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
+        glfwSetWindowShouldClose(window, GL_TRUE);
+    
+}
+
 void Viewer::initializeGL(){
     if( !glfwInit() )
     {
         fprintf( stderr, "Failed to initialize GLFW\n" );
         getchar();
-//        return -1;
     }
 
-//    glfwWindowHint(GLFW_SAMPLES, 4);
+    glfwWindowHint(GLFW_SAMPLES, 4);
     glfwWindowHint(GLFW_RESIZABLE,GL_TRUE);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
@@ -56,7 +61,7 @@ void Viewer::initializeGL(){
 #endif
 
     if( window == NULL ){
-        fprintf( stderr, "Failed to open GLFW window. If you have an Intel GPU, they are not 3.3 compatible. Try the 2.1 version of the tutorials.\n" );
+        fprintf( stderr, "Failed to open GLFW window. If you have an Intel GPU, they are not 3.3 compatible" );
         getchar();
         glfwTerminate();
 //        return -1;
@@ -72,6 +77,7 @@ void Viewer::initializeGL(){
 //        return -1;
     }
 
+    glfwSetKeyCallback(window, key_callback);
     glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
     // Hide the mouse and enable unlimited mouvement
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -228,15 +234,16 @@ void Viewer::display(){
     glfwSetWindowTitle(window, title.c_str());
 
     double lastTime = glfwGetTime();
-    do{
+    while(!glfwWindowShouldClose(window)){
         // Clear the screen
+        positions.clear();
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         double currentTime = glfwGetTime();
         lastTime = currentTime;
 
         fluid->step();
-
+        
         // setup camera
         camera.computeMatricesFromInputs(window);
         ViewMatrix = camera.getViewMatrix();
@@ -248,6 +255,7 @@ void Viewer::display(){
         drawCube();
         
         int ParticlesCount = 0;
+        
         for(int i=0; i< fluid->ParticlesContainer.size(); i++){
 
             Particle& p = fluid->ParticlesContainer[i]; // shortcut
@@ -265,10 +273,51 @@ void Viewer::display(){
             g_particule_color_data[4*ParticlesCount+2] = p.b;
             g_particule_color_data[4*ParticlesCount+3] = p.a;
 
+            positions.push_back(openvdb::Vec3f(p.pos.x,p.pos.y,p.pos.z));
+
             ParticlesCount++;
 
         }
+        
+#ifdef __APPLE__
+        // VDB EXPORT
+        if (glfwGetKey( window, GLFW_KEY_V ) == GLFW_PRESS){
+            using namespace openvdb::tools;
 
+            // Initialize the OpenVDB and OpenVDB Points library.  This must be called at least
+            // once per program and may safely be called multiple times.
+            openvdb::initialize();
+            openvdb::points::initialize();
+            
+            
+            // Create a linear transform with voxel size of 10.0
+            const float voxelSize = 10.0f;
+            openvdb::math::Transform::Ptr transform = openvdb::math::Transform::createLinearTransform(voxelSize);
+            
+            // Create the PointDataGrid, position attribute is mandatory
+            PointDataGrid::Ptr pointDataGrid = createPointDataGrid<PointDataGrid>(
+                                                                                  positions, TypedAttributeArray<openvdb::Vec3f>::attributeType(), *transform);
+            
+            // Output leaf nodes
+            std::cout << "Leaf Nodes: " << pointDataGrid->tree().leafCount() << std::endl;
+
+            // Output point count
+            std::cout << "Point Count: " << pointCount(pointDataGrid->tree()) << std::endl;
+            
+            // Create a VDB file object.
+            openvdb::io::File file("flip.vdb");
+            
+            // Add the grid pointer to a container.
+            openvdb::GridPtrVec grids;
+            grids.push_back(pointDataGrid);
+            
+            // Write out the contents of the container.
+            file.write(grids);
+            file.close();
+            
+        }
+#endif
+        
         int MaxParticles = fluid->ParticlesContainer.size();
 
         //  Use our shader
@@ -306,8 +355,6 @@ void Viewer::display(){
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
-    while( (glfwGetKey(window, GLFW_KEY_ESCAPE ) != GLFW_PRESS ) &&
-            glfwWindowShouldClose(window) == 0);
     glfwTerminate();
 }
 

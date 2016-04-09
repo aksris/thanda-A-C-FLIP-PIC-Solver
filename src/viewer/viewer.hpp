@@ -4,15 +4,11 @@
 
 #ifndef viewer_hpp
 #define viewer_hpp
+
 #include <iostream>
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
-//#include "particles.h"
-//#include "common/shader.hpp"
-//#include "common/controls.hpp"
-//#include "common/vboindexer.hpp"
-//#include "common/texture.hpp"
 #include "../scene/scene.hpp"
 #include <stdio.h>
 #include <string>
@@ -21,10 +17,20 @@
 #include "../camera/camera.hpp"
 #include <fstream>
 #include <algorithm>
+
 using namespace std;
 #include "../geom/cube.h"
 #include <stdlib.h>
 #include <string.h>
+
+#ifdef __APPLE__
+#include <openvdb/openvdb.h>
+#include <openvdb_points/openvdb.h>
+#include <openvdb_points/tools/PointDataGrid.h>
+#include <openvdb_points/tools/PointConversion.h>
+#include <openvdb_points/tools/PointCount.h>
+#endif
+
 
 class Viewer {
 public:
@@ -32,6 +38,7 @@ public:
     ~Viewer();
     void initializeGL();
     void initializeShader();
+//    void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode);
 
     void drawCube();
     void drawParticles(int ParticlesCount);
@@ -56,6 +63,11 @@ public:
     // There should be a getCameraPosition() function in common/controls.cpp,
     // but this works too.
     glm::vec3 CameraPosition;
+
+#ifdef __APPLE__
+    // Create some point positions
+    std::vector<openvdb::Vec3f> positions;
+#endif
 
 
 };
