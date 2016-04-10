@@ -234,6 +234,9 @@ void Viewer::display(){
     glfwSetWindowTitle(window, title.c_str());
 
     double lastTime = glfwGetTime();
+    bool fin = false;
+    float dt = 0.f, t = 0.f, frame_time = 1.f / 30.f;
+    int counter = 0;
     while(!glfwWindowShouldClose(window)){
         // Clear the screen
         positions.clear();
@@ -241,8 +244,18 @@ void Viewer::display(){
 
         double currentTime = glfwGetTime();
         lastTime = currentTime;
+        dt = 0.f, t = 0.f, frame_time = 1.f / 30.f;
+        while(!fin){
+            //call for every frame
+            if(t+dt >= frame_time) {
+                dt = frame_time - t;
+                fin = true;
+            }
+            fluid->step(dt);
+            t += dt;
+        }
+        counter++;
 
-        fluid->step();
         
         // setup camera
         camera.computeMatricesFromInputs(window);
@@ -279,44 +292,46 @@ void Viewer::display(){
 
         }
         
-#ifdef __APPLE__
+//#ifdef __linux__
         // VDB EXPORT
-        if (glfwGetKey( window, GLFW_KEY_V ) == GLFW_PRESS){
-            using namespace openvdb::tools;
+//        if (glfwGetKey( window, GLFW_KEY_V ) == GLFW_PRESS){
+        using namespace openvdb::tools;
 
-            // Initialize the OpenVDB and OpenVDB Points library.  This must be called at least
-            // once per program and may safely be called multiple times.
-            openvdb::initialize();
-            openvdb::points::initialize();
-            
-            
-            // Create a linear transform with voxel size of 10.0
-            const float voxelSize = 10.0f;
-            openvdb::math::Transform::Ptr transform = openvdb::math::Transform::createLinearTransform(voxelSize);
-            
-            // Create the PointDataGrid, position attribute is mandatory
-            PointDataGrid::Ptr pointDataGrid = createPointDataGrid<PointDataGrid>(
-                                                                                  positions, TypedAttributeArray<openvdb::Vec3f>::attributeType(), *transform);
-            
-            // Output leaf nodes
-            std::cout << "Leaf Nodes: " << pointDataGrid->tree().leafCount() << std::endl;
+        // Initialize the OpenVDB and OpenVDB Points library.  This must be called at least
+        // once per program and may safely be called multiple times.
+        openvdb::initialize();
+        openvdb::points::initialize();
 
-            // Output point count
-            std::cout << "Point Count: " << pointCount(pointDataGrid->tree()) << std::endl;
+
+        // Create a linear transform with voxel size of 10.0
+        const float voxelSize = 10.0f;
+        openvdb::math::Transform::Ptr transform = openvdb::math::Transform::createLinearTransform(voxelSize);
+
+        // Create the PointDataGrid, position attribute is mandatory
+        PointDataGrid::Ptr pointDataGrid = createPointDataGrid<PointDataGrid>(
+                    positions, TypedAttributeArray<openvdb::Vec3f>::attributeType(), *transform);
+
+        // Output leaf nodes
+        std::cout << "Leaf Nodes: " << pointDataGrid->tree().leafCount() << std::endl;
+
+        // Output point count
+        std::cout << "Point Count: " << pointCount(pointDataGrid->tree()) << std::endl;
+
+        // Create a VDB file object.
+        string file_name = "flip_";
+        string ext = ".vdb";
+        openvdb::io::File file(file_name+std::to_string(counter)+ext);
+
+        // Add the grid pointer to a container.
+        openvdb::GridPtrVec grids;
+        grids.push_back(pointDataGrid);
+
+        // Write out the contents of the container.
+        file.write(grids);
+        file.close();
             
-            // Create a VDB file object.
-            openvdb::io::File file("flip.vdb");
-            
-            // Add the grid pointer to a container.
-            openvdb::GridPtrVec grids;
-            grids.push_back(pointDataGrid);
-            
-            // Write out the contents of the container.
-            file.write(grids);
-            file.close();
-            
-        }
-#endif
+//        }
+//#endif
         
         int MaxParticles = fluid->ParticlesContainer.size();
 

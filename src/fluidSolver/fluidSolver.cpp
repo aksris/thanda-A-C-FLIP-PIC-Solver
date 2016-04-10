@@ -88,7 +88,7 @@ MACGrid& MACGrid::operator =(const MACGrid& val){
 FluidSolver::FluidSolver(const ivec3& resolution, const vec3& containerBounds){
     LastUsedParticle = 0;
     MaxParticles = 2000000;
-    delta = 0.1f;
+//    delta = 0.1f;
 
     this->resolution = resolution;
     this->containerBounds = containerBounds;
@@ -960,8 +960,8 @@ void FluidSolver::clearGrid(){
     std::fill(grid->P->mData.begin(), grid->P->mData.end(),0);
 }
 
-void FluidSolver::step(){
-
+void FluidSolver::step(const float &dt){
+    delta = dt;
     this->initializeMarkerGrid();
 //    this->RepositionParticles();
 

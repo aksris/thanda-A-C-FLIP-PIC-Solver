@@ -61,10 +61,10 @@ add_definitions(
 )
 
 set(CORE_LIBS ${GLFW_LIBRARY} ${GLUT_LIBRARY} ${GLEW_LIBRARY} ${JSONCPP} ${OPENGL_LIBRARY})
+set(CORE_LIBS  ${CORE_LIBS} ${OPENVDB} ${OPENVDB_POINTS} ${VDBLIBS})
 
 # OSX-specific hacks/fixes
 if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-    set(CORE_LIBS  ${CORE_LIBS} ${OPENVDB} ${OPENVDB_POINTS} ${VDBLIBS})
     #Link IOKit because this is where we get GL stuff for OSX
     set(COCOA "-framework Cocoa")
     set(COREVIDEO "-framework CoreVideo")

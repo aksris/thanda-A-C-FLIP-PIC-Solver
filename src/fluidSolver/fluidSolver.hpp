@@ -95,7 +95,7 @@ public:
     void storeCurrentGridVelocities();
     void SubtractPressureGradient();
 
-    void step();
+    void step(const float &dt);
     void clearGrid();
 
     void naiveNeighborSearch(Particle *p, std::vector<Particle> &neighbors);

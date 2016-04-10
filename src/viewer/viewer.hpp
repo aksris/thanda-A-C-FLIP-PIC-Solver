@@ -23,13 +23,15 @@ using namespace std;
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef __APPLE__
+//#define __APPLE__
+
+//#ifdef __linux__
 #include <openvdb/openvdb.h>
 #include <openvdb_points/openvdb.h>
 #include <openvdb_points/tools/PointDataGrid.h>
 #include <openvdb_points/tools/PointConversion.h>
 #include <openvdb_points/tools/PointCount.h>
-#endif
+//#endif
 
 
 class Viewer {
@@ -64,10 +66,10 @@ public:
     // but this works too.
     glm::vec3 CameraPosition;
 
-#ifdef __APPLE__
+//#ifdef __linux__
     // Create some point positions
     std::vector<openvdb::Vec3f> positions;
-#endif
+//#endif
 
 
 };
