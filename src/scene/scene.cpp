@@ -54,6 +54,41 @@ void Scene::parseScene(const char* filename, Scene& scene){
     scene.particle_separation = separation;
 }
 
+void Scene::LoadOBJ(const char* filename, Scene& scene){
+#define TINYOBJLOADER_IMPLEMENTATION
+    std::vector<tinyobj::shape_t> shapes;
+    std::vector<tinyobj::material_t> materials;
+
+    std::string err;
+    bool triangulate = false;
+    bool ret = tinyobj::LoadObj(shapes, materials, err, filename);
+
+
+    if (!err.empty()) { // `err` may contain warning message.
+        std::cerr << err << std::endl;
+    }
+
+    if (!ret) {
+        exit(1);
+    }
+    std::cout << shapes.size() << std::endl;
+    for (size_t i = 0; i < shapes.size(); i++) {
+
+        size_t indexOffset = 0;
+        for (size_t n = 0; n < shapes[i].mesh.num_vertices.size(); n++) {
+            int ngon = shapes[i].mesh.num_vertices[n];
+            for (size_t f = 0; f < ngon; f++) {
+                unsigned int v = shapes[i].mesh.indices[indexOffset + f];
+                positions.push_back(glm::vec3(shapes[i].mesh.positions[3*v+0],
+                                                            shapes[i].mesh.positions[3*v+1],
+                                                            shapes[i].mesh.positions[3*v+2]));
+
+            }
+            indexOffset += ngon;
+        }
+    }
+}
+
 GLuint Scene::LoadShaders(const char * vertex_file_path,const char * fragment_file_path){
 
     // Create the shaders

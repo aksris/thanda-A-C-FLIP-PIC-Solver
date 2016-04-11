@@ -71,7 +71,6 @@ public:
     FluidSolver(const ivec3& resolution, const vec3 &containerBounds);
     ~FluidSolver();
     MACGrid* grid;
-//    MACGrid* tmp;
 
     float delta;
     int num_cells;
@@ -90,15 +89,13 @@ public:
     std::map<int, ivec3> reposition_map;
 
     void constructMACGrid(const Scene& scene);
-    void initMACGrid(Particle &p);
+
     void storeParticleVelocityToGrid();
     void storeCurrentGridVelocities();
     void SubtractPressureGradient();
 
     void step(const float &dt);
     void clearGrid();
-
-    void naiveNeighborSearch(Particle *p, std::vector<Particle> &neighbors);
 
     void initializeMarkerGrid();
 
@@ -119,21 +116,10 @@ public:
 
     vec3 integratePos(const vec3& pos, const vec3& speed, const float& time_step, bool RK2);
 
-    void calculateDensity(Particle &p);
     void calculateGravityForces(Particle& p, float delta);
     void ExtrapolateVelocity();
-    int findUnusedParticles();
-    void sortParticles();
-    void particlesInit();
-    void genParticles(float particle_separation, float boundx, float boundy, float boundz);
 
-//    void RepositionParticles();
-    
-
+    void genParticles(float particle_separation, float boundx, float boundy, float boundz, const std::vector<vec3> &obj);
 
 };
-float Smooth(const float& r2, const float& h);
-float Sharpen(const float& r2, const float& h);
-float StiffKernel(const vec3 &r, const float& cell_width);
-float Sqrlength(const glm::vec3& p0, const glm::vec3& p1);
 #endif /* fluidSolver_hpp */

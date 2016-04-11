@@ -4,7 +4,7 @@
 //#define DEBUG
 #define VISCOSITY 0.95f
 #define EPSILON 0.00001f
-#define SEED 200
+#define SEED 100
 //magic number 750
 #include "fluidSolver.hpp"
 #include "../scene/scene.hpp"
@@ -87,43 +87,18 @@ MACGrid& MACGrid::operator =(const MACGrid& val){
 
 FluidSolver::FluidSolver(const ivec3& resolution, const vec3& containerBounds){
     LastUsedParticle = 0;
-    MaxParticles = 2000000;
-//    delta = 0.1f;
+    MaxParticles = 5000000;
 
     this->resolution = resolution;
     this->containerBounds = containerBounds;
-    this->cellSize = containerBounds.x/resolution.x;
+    this->cellSize = max(max(containerBounds.x/resolution.x, containerBounds.y/resolution.y),
+                         containerBounds.z/resolution.z);
 
     grid = new MACGrid(this->resolution, this->containerBounds, this->cellSize);
-//    tmp = new MACGrid(this->resolution, this->containerBounds, this->cellSize);
 }
 
 FluidSolver::~FluidSolver(){
     delete grid;
-//    delete tmp;
-}
-
-int FluidSolver::findUnusedParticles(){
-
-    for(int i=LastUsedParticle; i<MaxParticles; i++){
-        if (ParticlesContainer[i].life < 0){
-            LastUsedParticle = i;
-            return i;
-        }
-    }
-
-    for(int i=0; i<LastUsedParticle; i++){
-        if (ParticlesContainer[i].life < 0){
-            LastUsedParticle = i;
-            return i;
-        }
-    }
-
-    return 0; // All particles are taken, override the first one
-}
-
-void FluidSolver::sortParticles(){
-    std::sort(&ParticlesContainer[0], &ParticlesContainer[MaxParticles]);
 }
 
 void FluidSolver::constructMACGrid(const Scene& scene){
@@ -131,11 +106,6 @@ void FluidSolver::constructMACGrid(const Scene& scene){
     containerBounds = scene.containerBounds;
 
     num_cells = (resolution.x * resolution.y * resolution.z);
-//    grid->initialize();
-}
-
-void FluidSolver::initMACGrid(Particle &p){
-
 }
 
 void FluidSolver::calculateGravityForces(Particle &p, float delta){
@@ -143,40 +113,31 @@ void FluidSolver::calculateGravityForces(Particle &p, float delta){
     p.pos += p.speed * delta;
 }
 
-void FluidSolver::particlesInit(){
-    for(int i=0; i<MaxParticles; i++){
-        ParticlesContainer[i].cameradistance = -1.0f;
-        ParticlesContainer[i].size = 0.1f;
-    }
-}
 float rand(int LO, int HI){
     return LO + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(HI-LO)));
 }
 
-void FluidSolver::genParticles(float particle_separation, float boundx, float boundy, float boundz){
+void FluidSolver::genParticles(float particle_separation, float boundx, float boundy, float boundz, const std::vector<vec3>& obj){
     Particle p;
     int iter;
-    for(int k = 1; k < (int)boundz; k++){
+    for(int k = 2; k < (int)boundz; k++){
         for(int j = 2; j < (int)boundy; j++){
-            for(int i = 1; i < (int)boundx; i++){
+            for(int i = 2; i < (int)boundx; i++){
                 iter=0;
                 while(iter < SEED){
-//                    P->pos = vec3(1.8,1.8,1.6);
                     p.gridIdx = ivec3(i,j,k);
-//                    std::cout << "CREATED FLUID at " << i << " " << j << " " << k << " " << std::endl;
                     p.pos = vec3(rand(i,i+1), rand(j,j+1), rand(k, k+1)) * this->cellSize;
-                    p.speed = vec3(0.f, 0.f, 0.f);
                     ParticlesContainer.push_back(p);
                     iter++;
                 }
             }
         }
     }
-}
-
-void FluidSolver::calculateDensity(Particle &p){
-    // for all neighboring particles: mass_i * kernel_function(p_i - x, h) / max_density
-
+//    for(vec3 obj_point : obj){
+//        p.gridIdx = ivec3(obj_point.x, obj_point.y, obj_point.z);
+//        p.pos = obj_point;
+//        ParticlesContainer.push_back(p);
+//    }
 }
 
 void FluidSolver::FlipSolve(){
@@ -228,45 +189,6 @@ void FluidSolver::PicSolve(){
 
 }
 
-void FluidSolver::naiveNeighborSearch(Particle *p, std::vector<Particle> &neighbors) {
-    for (int i = 0; i < ParticlesContainer.size(); i++) {
-        float dist = glm::length(p->pos - ParticlesContainer[i].pos);
-        if (dist < 1.4f) {
-            neighbors.push_back(ParticlesContainer[i]);
-        }
-    }
-}
-
-float Sqrlength(const glm::vec3& p0, const glm::vec3& p1){
-    float a = p0.x - p1.x;
-    float b = p0.y - p1.y;
-    float c = p0.z - p1.z;
-    return a*a + b*b + c*c;
-}
-
-float Smooth(const float& r2, const float& h) {
-    return glm::max(1.0f-r2/(h*h), 0.0f);
-}
-
-float Sharpen(const float& r2, const float& h) {
-    return glm::max(h*h/glm::max(r2,(float)1.0e-5) - 1.0f, 0.0f);
-}
-
-float h(float r){
-    if(r >= 0.f && r <= 1.f)
-        return 1.f - r;
-    else if(-1.f <= r && r < 0.f)
-        return 1.f + r;
-    else
-        return 0.f;
-}
-
-float StiffKernel(const vec3& r, const float& cell_width){
-//    return h(r.x/cell_width)*h(r.y/cell_width)*h(r.z/cell_width);
-    float r2 = length2(r);
-    return max(1.f - r2 / (cell_width*cell_width), EPSILON);
-}
-
 void FluidSolver::CalculateGravityToCell(float delta){
     vec3 speed;
     for (int k = 0; k < resolution.x; k++){
@@ -297,7 +219,6 @@ void FluidSolver::storeParticleVelocityToGrid(){
         ParticlesContainer.at(i).gridIdx = index;
 
         grid->P->setCellMark(index.x, index.y, index.z, FLUID);
-//        std::cout << "MARKED FLUID at " << index.x << " " << index.y << " " << index.z << " " << std::endl;
 
         //################## X direction #############################################
         pos = grid->vel_U->worldToLocal(w_pos);
@@ -462,28 +383,6 @@ void FluidSolver::storeParticleVelocityToGrid(){
 
 }
 
-//void FluidSolver::RepositionParticles(){
-//    for(auto i : reposition_map){
-//        Particle& p = ParticlesContainer.at(i.first);
-//#ifdef DEBUG
-//        if(p.gridIdx.x < 0 || p.gridIdx.x > resolution.x - 1 ||
-//                p.gridIdx.y < 0 || p.gridIdx.y > resolution.y - 1 ||
-//                p.gridIdx.z < 0 || p.gridIdx.z > resolution.z - 1){
-//            int a = 1;
-//        }
-//#endif
-//
-//        // change particle info
-//        p.pos = vec3(i.second) * cellSize + vec3(rand(0,1));
-//        p.gridIdx = vec3(i.second);
-//        
-//        // mark new grid cell where particle was repositioned to
-//        this->grid->P->setCellMark(i.second.x, i.second.y, i.second.z, FLUID);
-//    }
-//    
-//    reposition_map.clear();
-//}
-
 void FluidSolver::initializeMarkerGrid(){
     int x = resolution.x;
     int y = resolution.y;
@@ -605,16 +504,6 @@ void FluidSolver::buildDivergences(Eigen::VectorXd& rhs){
                     }
 #endif
                     rhs[id] = -divergence;
-                    
-//                    if (grid->P->getCellMark(i-1, j, k)==SOLID) rhs[id] -= scale * (*grid->vel_U)(i, j, k);
-//                    if (grid->P->getCellMark(i+1, j, k)==SOLID) rhs[id] += scale * (*grid->vel_U)(i+1, j, k);
-                    
-//                    if (grid->P->getCellMark(i, j-1, k)==SOLID) rhs[id] -= scale * (*grid->vel_V)(i, j, k);
-//                    if (grid->P->getCellMark(i, j+1, k)==SOLID) rhs[id] += scale * (*grid->vel_V)(i, j+1, k);
-
-//                    if (grid->P->getCellMark(i, j, k-1)==SOLID) rhs[id] -= scale * (*grid->vel_W)(i, j, k);
-//                    if (grid->P->getCellMark(i, j, k+1)==SOLID) rhs[id] += scale * (*grid->vel_W)(i, j, k+1);
-                    //for moving walls/solids
                 }
             }
         }
@@ -631,12 +520,11 @@ void FluidSolver::fillPressureGrid(Eigen::VectorXd x){
                     if (std::isnan(x[id]))
                     std::cout<<"ERROR with PCG"<<std::endl;
                     grid->P->setCell(i,j,k, ((float)x[id]));
-//                    grid->P->setCell(i,j,k, (float)x[id]);
-//#ifdef DEBUG
-//                    float x = (*grid->P)(i,j,k);
-//                    std::cout << "Pressure at "<< i << " "<< j << " " << k << ": "<<x<< std::endl;
                 }
-//#endif
+#ifdef DEBUG
+                    float x = (*grid->P)(i,j,k);
+                    std::cout << "Pressure at "<< i << " "<< j << " " << k << ": "<<x<< std::endl;
+#endif
             }
         }
     }
@@ -663,20 +551,11 @@ void FluidSolver::ProjectPressure(){
     
     // solve
     Eigen::ConjugateGradient<Eigen::SparseMatrix<double>, Eigen::Lower|Eigen::Upper, Eigen::IncompleteCholesky<double>> pcg(A);  // performs a Cholesky factorization of A
-//    cg.compute(A);
     p = pcg.solve(rhs);
-
-//    Eigen::IncompleteCholesky<double, Eigen::Lower|Eigen::Upper> pcg(A); //calls pcg.compute internally
-//    p = pcg.solve(rhs);
-    
-//    std::cout << "PCG info: " << pcg.info() << std::endl;
 
     // fill eigen vector into grid.P
     fillPressureGrid(p);
     SubtractPressureGradient();
-//    buildDivergences(rhs);
-//    std::cout << "After pressure: " << -rhs[38] << std::endl;
-//    int a =1;
 }
 
 void FluidSolver::SubtractPressureGradient(){
@@ -754,9 +633,9 @@ vec3 FluidSolver::integratePos(const vec3& pos, const vec3& speed, const float& 
 }
 
 void FluidSolver::ExtrapolateVelocity(){
-    int x = grid->P->resolution.x;
-    int y = grid->P->resolution.y;
-    int z = grid->P->resolution.z;
+    int x = resolution.x;
+    int y = resolution.y;
+    int z = resolution.z;
 
     MACGridData extrapolate_grid_U(resolution, containerBounds, cellSize);
     MACGridData extrapolate_grid_V(resolution, containerBounds, cellSize);
@@ -779,7 +658,6 @@ void FluidSolver::ExtrapolateVelocity(){
                 else if((i < x && (grid->P->getCellMark(i,j,k) == SOLID)) &&
                         (i > 0 && (grid->P->getCellMark(i-1,j,k) == SOLID )) //check if me solid and near solid
                         || (i < x && (grid->P->getCellMark(i,j,k) == AIR)) &&
-//                        (i > 0 && (grid->P->getCellMark(i-1,j,k) == SOLID || grid->P->getCellMark(i-1,j,k) == AIR)) // not bridson
                         (i > 0 && (grid->P->getCellMark(i-1,j,k) == AIR)) // bridson
                         ) //me air, and near (solid or air)
                 {
@@ -792,7 +670,7 @@ void FluidSolver::ExtrapolateVelocity(){
                 else if((j < y && (grid->P->getCellMark(i,j,k) == SOLID)) &&
                         (j > 0 && (grid->P->getCellMark(i,j-1,k) == SOLID )) //check if me solid and near solid
                         || (j < y && (grid->P->getCellMark(i,j,k) == AIR)) &&
-                        //                        (j > 0 && (grid->P->getCellMark(i,j-1,k) == SOLID || grid->P->getCellMark(i,j-1,k) == AIR))) //me air, and near (solid or air)
+                        //me air, and near (solid or air)
                         (j > 0 && (grid->P->getCellMark(i,j-1,k) == AIR))) //me air, and near (solid or air)
                     
                 {
@@ -805,7 +683,7 @@ void FluidSolver::ExtrapolateVelocity(){
                 else if((k < z && (grid->P->getCellMark(i,j,k) == SOLID)) &&
                         (k > 0 && (grid->P->getCellMark(i,j,k-1) == SOLID )) //check if me solid and near solid
                         || (k < z && (grid->P->getCellMark(i,j,k) == AIR)) &&
-                        //                        (k > 0 && (grid->P->getCellMark(i,j,k-1) == SOLID || grid->P->getCellMark(i,j,k-1) == AIR))) //me air, and near (solid or air)
+                        //me air, and near (solid or air)
                         (k > 0 && (grid->P->getCellMark(i,j,k-1) == AIR))) //me air, and near (solid or air)
                 {
                     extrapolate_grid_W.setCellMark(i,j,k,SOLID);
@@ -827,72 +705,59 @@ void FluidSolver::ExtrapolateVelocity(){
                 if((j < y && k < z) && extrapolate_grid_U.getCellMark(i, j, k) == SOLID){
                     unsigned int wsum = 0;
                     float sum = 0.0f;
-                    for(unsigned int qk = 0; qk < 6; ++qk){
-                        if(q[qk][0] >= 0 && q[qk][0]< x + 1 && q[qk][1] >= 0 &&
-                                q[qk][1] < y && q[qk][2] >= 0 && q[qk][2] < z ) {
+                    for(unsigned int neighbor = 0; neighbor < 6; ++neighbor){
+                        if(q[neighbor][0] >= 0 && q[neighbor][0]< x + 1 && q[neighbor][1] >= 0 &&
+                                q[neighbor][1] < y && q[neighbor][2] >= 0 && q[neighbor][2] < z ) {
 
-                            if(extrapolate_grid_U.getCellMark(q[qk]) == FLUID){
-                                //std::cout << "[thanda] ExtrapolateVelocity for "<< i << " "<< j << " "<< k << " from " << q[qk][0] << " "<< q[qk][1] << " "<< q[qk][2] << " : " << this->grid->vel_V(q[qk][0], q[qk][1], q[qk][2]) << std::endl;
-
+                            if(extrapolate_grid_U.getCellMark(q[neighbor]) == FLUID){
                                 wsum ++;
-                                sum += (*grid->vel_U)(q[qk][0],q[qk][1],q[qk][2]);
+                                sum += (*grid->vel_U)(q[neighbor][0],q[neighbor][1],q[neighbor][2]);
                             }
                         }
                     }
                     if(wsum){
                         grid->vel_U->setCell(i,j,k,sum/wsum);
                     }
-                    //std::cout << "[thanda] Cell Type :"<< this->grid->P->getCellMark(i, j+1, k) << " at idx " << i << " "<< j+1 << " "<< k << " : "<< this->grid->vel_V(i,j+1,k) << std::endl;
                 }
                 //y faces
                 if((i < x && k < z) && extrapolate_grid_V.getCellMark(i, j, k) == SOLID){
                     unsigned int wsum = 0;
                     float sum = 0.0f;
                     
-                    for(unsigned int qk = 0; qk < 6; ++qk){
-                        if(q[qk][0] >= 0 && q[qk][0]< x && q[qk][1] >= 0 &&
-                                q[qk][1] < y+1 && q[qk][2] >= 0 && q[qk][2] < z ) {
+                    for(unsigned int neighbor = 0; neighbor < 6; ++neighbor){
+                        if(q[neighbor][0] >= 0 && q[neighbor][0]< x && q[neighbor][1] >= 0 &&
+                                q[neighbor][1] < y+1 && q[neighbor][2] >= 0 && q[neighbor][2] < z ) {
 
-                            if(extrapolate_grid_V.getCellMark(q[qk]) == FLUID){
-                                //std::cout << "[thanda] ExtrapolateVelocity for "<< i << " "<< j << " "<< k << " from " << q[qk][0] << " "<< q[qk][1] << " "<< q[qk][2] << " : " << this->grid->vel_V(q[qk][0], q[qk][1], q[qk][2]) << std::endl;
-
+                            if(extrapolate_grid_V.getCellMark(q[neighbor]) == FLUID){
                                 wsum ++;
-
-                                sum += (*grid->vel_V)(q[qk][0],q[qk][1],q[qk][2]);
+                                sum += (*grid->vel_V)(q[neighbor][0],q[neighbor][1],q[neighbor][2]);
                             }
                         }
                     }
                     if(wsum){
-                        //std::cout << "[thanda] ExtrapolateVelocity for "<< i << " "<< j << " "<< k << " : "<< sum/wsum<<std::endl;
                         grid->vel_V->setCell(i,j,k,sum/wsum);
                     }
-                    //std::cout << "[thanda] Cell Type :"<< this->grid->P->getCellMark(i, j+1, k) << " at idx " << i << " "<< j+1 << " "<< k << " : "<< this->grid->vel_V(i,j+1,k) << std::endl;
                 }
                 //z faces
                 if((j < y && i < x) && extrapolate_grid_W.getCellMark(i, j, k) == SOLID){
                     unsigned int wsum = 0;
                     float sum = 0.0f;
                     
-                    for(unsigned int qk = 0; qk < 6; ++qk){
-                        if(q[qk][0] >= 0 && q[qk][0]< x && q[qk][1] >= 0 &&
-                                q[qk][1] < y && q[qk][2] >= 0 && q[qk][2] < z+1 ) {
+                    for(unsigned int neighbor = 0; neighbor < 6; ++neighbor){
+                        if(q[neighbor][0] >= 0 && q[neighbor][0]< x && q[neighbor][1] >= 0 &&
+                                q[neighbor][1] < y && q[neighbor][2] >= 0 && q[neighbor][2] < z+1 ) {
 
-                            if(extrapolate_grid_W.getCellMark(q[qk]) == FLUID){
-                                //std::cout << "[thanda] ExtrapolateVelocity for "<< i << " "<< j << " "<< k << " from " << q[qk][0] << " "<< q[qk][1] << " "<< q[qk][2] << " : " << this->grid->vel_V(q[qk][0], q[qk][1], q[qk][2]) << std::endl;
-
+                            if(extrapolate_grid_W.getCellMark(q[neighbor]) == FLUID){
                                 wsum ++;
-
-                                sum += (*grid->vel_W)(q[qk][0],q[qk][1],q[qk][2]);
+                                sum += (*grid->vel_W)(q[neighbor][0],q[neighbor][1],q[neighbor][2]);
                             }
                         }
                     }
                     if(wsum){
                         grid->vel_W->setCell(i,j,k,sum/wsum);
                     }
-                    //std::cout << "[thanda] Cell Type :"<< this->grid->P->getCellMark(i, j+1, k) << " at idx " << i << " "<< j+1 << " "<< k << " : "<< this->grid->vel_V(i,j+1,k) << std::endl;
                 }
             }
-
         }
     }
     
@@ -935,7 +800,6 @@ void FluidSolver::setBoundaryVelocitiesToZero(){
 }
 
 void FluidSolver::storeCurrentGridVelocities(){
-//    tmp=grid;
     *this->grid->flip_vel_U = *this->grid->vel_U;
     *this->grid->flip_vel_V = *this->grid->vel_V;
     *this->grid->flip_vel_W = *this->grid->vel_W;
@@ -963,16 +827,10 @@ void FluidSolver::clearGrid(){
 void FluidSolver::step(const float &dt){
     delta = dt;
     this->initializeMarkerGrid();
-//    this->RepositionParticles();
-
-//#define DEBUG
     
     // Step 3 - Store Particle Velocity at current time step to MACGrid
-//    int i = this->ParticlesContainer.at(0).gridIdx[0];
-//    int j = this->ParticlesContainer.at(0).gridIdx[1];
-//    int k = this->ParticlesContainer.at(0).gridIdx[2];
-
     this->storeParticleVelocityToGrid();
+
 #ifdef DEBUG
     std::cout << "[thanda] storeParticleVelocityToGrid Iteration" << std::endl;
     std::cout << "[thanda] Cell Type :"<< this->grid->P->getCellMark(i, j, k) << " at idx " << i << " "<< j << " "<< k << " : "<< (*grid->vel_V)(i,j,k) << std::endl;
@@ -993,8 +851,7 @@ void FluidSolver::step(const float &dt){
 
     // Step 5 - Add Body Forces like Gravity to MACGrid
     this->CalculateGravityToCell(delta);
-    
-//    this->ExtrapolateVelocity();
+
     this->setBoundaryVelocitiesToZero();
     
     //pressure solve

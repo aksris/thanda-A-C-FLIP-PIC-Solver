@@ -228,34 +228,25 @@ void Viewer::display(){
 
 
     // Step 2 - Particle Seeding
-    fluid->genParticles(scene.particle_separation, scene.particleBounds.x, scene.particleBounds.y, scene.particleBounds.z);
+    fluid->genParticles(scene.particle_separation, scene.particleBounds.x, scene.particleBounds.y, scene.particleBounds.z, scene.positions);
 
     string title = "To Debanshu: " + std::to_string(fluid->ParticlesContainer.size()) + " Particles";
     glfwSetWindowTitle(window, title.c_str());
 
     double lastTime = glfwGetTime();
     bool fin = false;
-    float dt = 0.f, t = 0.f, frame_time = 1.f / 30.f;
+    int count = 0;
+    float dt = 0.015f, t = 0.f, frame_time = 1.f / 30.f;
     int counter = 0;
     while(!glfwWindowShouldClose(window)){
         // Clear the screen
         positions.clear();
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        double currentTime = glfwGetTime();
-        lastTime = currentTime;
-        dt = 0.f, t = 0.f, frame_time = 1.f / 30.f;
-        while(!fin){
-            //call for every frame
-            if(t+dt >= frame_time) {
-                dt = frame_time - t;
-                fin = true;
-            }
-            fluid->step(dt);
-            t += dt;
-        }
-        counter++;
+        dt = 0.015f, t = 0.f, frame_time = 1.f / 30.f;
 
+        counter++;
+        fluid->step(/*dt*/0.1f);
         
         // setup camera
         camera.computeMatricesFromInputs(window);
@@ -291,10 +282,7 @@ void Viewer::display(){
             ParticlesCount++;
 
         }
-        
-//#ifdef __linux__
-        // VDB EXPORT
-//        if (glfwGetKey( window, GLFW_KEY_V ) == GLFW_PRESS){
+
         using namespace openvdb::tools;
 
         // Initialize the OpenVDB and OpenVDB Points library.  This must be called at least
@@ -305,34 +293,38 @@ void Viewer::display(){
 
         // Create a linear transform with voxel size of 10.0
         const float voxelSize = 10.0f;
-        openvdb::math::Transform::Ptr transform = openvdb::math::Transform::createLinearTransform(voxelSize);
+        openvdb::math::Transform::Ptr transform = openvdb::math::Transform::createLinearTransform();
 
         // Create the PointDataGrid, position attribute is mandatory
         PointDataGrid::Ptr pointDataGrid = createPointDataGrid<PointDataGrid>(
                     positions, TypedAttributeArray<openvdb::Vec3f>::attributeType(), *transform);
 
+
+#ifdef DEBUG
         // Output leaf nodes
         std::cout << "Leaf Nodes: " << pointDataGrid->tree().leafCount() << std::endl;
 
         // Output point count
         std::cout << "Point Count: " << pointCount(pointDataGrid->tree()) << std::endl;
-
+#endif
         // Create a VDB file object.
-        string file_name = "flip_";
+        string file_name = "yoda_flip_";
         string ext = ".vdb";
         openvdb::io::File file(file_name+std::to_string(counter)+ext);
 
         // Add the grid pointer to a container.
         openvdb::GridPtrVec grids;
         grids.push_back(pointDataGrid);
-
         // Write out the contents of the container.
-        file.write(grids);
+//        file.write(grids);
+        double currentTime = glfwGetTime();
+        double some = currentTime - lastTime;
+        lastTime = currentTime;
+
+        std::cout << some << std::endl;
+
         file.close();
             
-//        }
-//#endif
-        
         int MaxParticles = fluid->ParticlesContainer.size();
 
         //  Use our shader

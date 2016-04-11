@@ -5,14 +5,14 @@
 		"scaleZ" : 5.0
 	},
 	"particleDim" : {
-        "boundX" : 10,
-        "boundY" : 10,
-        "boundZ" : 10
+        "boundX" : 14,
+        "boundY" : 14,
+        "boundZ" : 14
 	},
 	"particleSeparation" : 0.1,
 	"grid" : {
-		"boundX" : 15,
-		"boundY" : 15, 
-		"boundZ" : 15
+		"boundX" : 20,
+		"boundY" : 20, 
+		"boundZ" : 20
 	}
 }
