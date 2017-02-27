@@ -129,8 +129,6 @@ vec3 MACGridData::worldToLocal(const vec3& pt) const
 
 float MACGridData::interpolate(const vec3& pt)
 {
-    
-//#define DEBUG
 
     vec3 pos = worldToLocal(pt);
 
@@ -142,60 +140,32 @@ float MACGridData::interpolate(const vec3& pt)
     float fract_partx = (pos[0] - i*CellSize);
     float fract_party = (pos[1] - j*CellSize);
     float fract_partz = (pos[2] - k*CellSize);
-#ifdef DEBUG
-    std::cout << "[thanda] InterpolateVelocity"<< std::endl;
-#endif
+
     // questions -
     // 1: Shouldn't all the neighbors have extrapolated values for correct interpolation - Yes!
     //    This function is trusting ExtrapolateVelocity to make sure there are no non-existant terms.
     //    Or are we supposed to check here regardless?
-    
-    
+
+
     float v000 = (*this)(i >= resolution.x? resolution.x - 1 : i, j >= resolution.y? resolution.y    -1: j, k >= resolution.z? resolution.z -1 : k);
     float v010 = (*this)(i >= resolution.x? resolution.x - 1 : i, j+1 >= resolution.y? resolution.y  -1: j + 1,k >= resolution.z? resolution.z-1 : k);
     float lerp1 = LERP(v000, v010, fract_party);
-#ifdef DEBUG
-    std::cout << "[thanda] at idx " << i << " "<< j << " "<< k << " : "<< (*this)(i,j,k) << std::endl;
-    std::cout << "[thanda] at idx " << i << " "<< j+1 << " "<< k << " : "<< (*this)(i,j+1,k) << std::endl;
-    std::cout << "[thanda] lerp1 " << lerp1 << std::endl;
-#endif
 
     float v100 = (*this)(i+1 >= resolution.x? resolution.x -1 : i+1, j >= resolution.y? resolution.y -1: j, k >= resolution.z? resolution.z -1: k);
     float v110 = (*this)(i+1 >= resolution.x? resolution.x -1 : i+1,j+1 >= resolution.y? resolution.y-1: j + 1,k >= resolution.z? resolution.z -1: k);
     float lerp2 = LERP(v100, v110, fract_party);
-#ifdef DEBUG
-    std::cout << "[thanda] at idx " << i+1 << " "<< j << " "<< k << " : "<< (*this)(i+1,j,k) << std::endl;
-    std::cout << "[thanda] at idx " << i+1 << " "<< j+1 << " "<< k << " : "<< (*this)(i+1,j+1,k) << std::endl;
-    std::cout << "[thanda] lerp2 " << lerp2 << std::endl;
-#endif
-    
+
     float v001 = (*this)(i >= resolution.x? resolution.x -1 : i, j >= resolution.y? resolution.y     -1: j, k+1 >= resolution.z ? resolution.z -1: k + 1);
     float v011 = (*this)(i >= resolution.x? resolution.x -1 : i,j+1 >= resolution.y? resolution.y-1: j + 1,k+1 >= resolution.z ? resolution.z -1: k+1);
     float lerp3 = LERP(v001, v011, fract_party);
-#ifdef DEBUG
-    std::cout << "[thanda] at idx " << i << " "<< j << " "<< k+1<< " : "<< (*this)(i,j,k+1) << std::endl;
-    std::cout << "[thanda] at idx " << i << " "<< j+1 << " "<< k+1 << " : "<< (*this)(i,j+1,k+1) << std::endl;
-    std::cout << "[thanda] lerp3 " << lerp3 << std::endl;
-#endif
-    
+
     float v101 = (*this)(i+1 >= resolution.x? resolution.x -1 : i+1,j >= resolution.y? resolution.y    -1: j,k+1 >= resolution.z ? resolution.z -1: k + 1);
     float v111 = (*this)(i+1 >= resolution.x? resolution.x -1 : i+1,j+1 >= resolution.y? resolution.y  -1: j + 1,k+1 >= resolution.z ? resolution.z-1 : k + 1);
     float lerp4 = LERP(v101, v111, fract_party);
-#ifdef DEBUG
-    std::cout << "[thanda] at idx " << i+1 << " "<< j << " "<< k+1 << " : "<< (*this)(i+1,j,k+1) << std::endl;
-    std::cout << "[thanda] at idx " << i+1 << " "<< j+1 << " "<< k+1 << " : "<< (*this)(i+1,j+1,k+1) << std::endl;
-    std::cout << "[thanda] lerp4 " << lerp4 << std::endl;
-#endif
 
     float lerp5 = LERP (lerp1, lerp2, fract_partx);
     float lerp6 = LERP (lerp3, lerp4, fract_partx);
     float ret = LERP(lerp5, lerp6, fract_partz);
-#ifdef DEBUG
-    std::cout << "[thanda] lerp5 " << lerp5 << std::endl;
-    std::cout << "[thanda] lerp6 " << lerp6 << std::endl;
-    std::cout << "[thanda] interpolated value " << ret << std::endl;
-#endif
-
 
     return ret;
 }

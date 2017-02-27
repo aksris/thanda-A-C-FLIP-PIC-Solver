@@ -8,7 +8,7 @@ Viewer::Viewer(int width, int height, const Scene &s){
     w = width;
     h = height;
     scene = s;
-    fluid = new FluidSolver(scene.resolution, scene.containerBounds);
+    fluid = new FluidSolver(scene);
 }
 
 Viewer::~Viewer(){
@@ -31,13 +31,13 @@ void Viewer::initializeShader(){
 
     /* MVP matrices */
     geomMatrixID = glGetUniformLocation(programIDGeometry, "MVP");
-   
+
 }
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode){
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
         glfwSetWindowShouldClose(window, GL_TRUE);
-    
+
 }
 
 void Viewer::initializeGL(){
@@ -64,7 +64,6 @@ void Viewer::initializeGL(){
         fprintf( stderr, "Failed to open GLFW window. If you have an Intel GPU, they are not 3.3 compatible" );
         getchar();
         glfwTerminate();
-//        return -1;
     }
     glfwMakeContextCurrent(window);
 
@@ -74,7 +73,6 @@ void Viewer::initializeGL(){
         fprintf(stderr, "Failed to initialize GLEW\n");
         getchar();
         glfwTerminate();
-//        return -1;
     }
 
     glfwSetKeyCallback(window, key_callback);
@@ -97,29 +95,33 @@ void Viewer::initializeGL(){
 
 
 void Viewer::drawCube(){
-    
+
     // Enable cubeShader and display cube
-    
+
     glUseProgram(programIDGeometry);
     glm::mat4 cubeModelMatrix = glm::translate(glm::mat4(1.f), glm::vec3(scene.containerBounds.x / 2.f, scene.containerBounds.y / 2.f, scene.containerBounds.z / 2.f)) ;
     cubeModelMatrix = (glm::scale(cubeModelMatrix,glm::vec3(scene.containerBounds.x, scene.containerBounds.y, scene.containerBounds.z )));
     cube.modelMatrix = cubeModelMatrix;
     glm::mat4 cubeMVP = ProjectionMatrix * ViewMatrix * cubeModelMatrix;
-    
+
     glUniformMatrix4fv(geomMatrixID, 1, GL_FALSE, &cubeMVP[0][0]);
     glEnableVertexAttribArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, cubevertexbuffer);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0  );
-    
+
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementbuffer);
-    
+
     glDrawElements(GL_LINES, 36, GL_UNSIGNED_INT, 0);
     glDisableVertexAttribArray(0);
-    
-    
+
+
 }
 
 void Viewer::drawParticles(int ParticlesCount){
+    /*
+    Borrowed from http://www.opengl-tutorial.org/intermediate-tutorials/billboards-particles/particles-instancing/
+    */
+
     // These functions are specific to glDrawArrays*Instanced*.
     // The first parameter is the attribute buffer we're talking about.
     // The second parameter is the "rate at which generic vertex attributes advance when rendering multiple instances"
@@ -176,13 +178,13 @@ void Viewer::allocateParticleBuffers(GLuint billboard_vertex_buffer, GLuint part
 }
 
 void Viewer::display(){
-    
-    
+
+
     GLuint VertexArrayID;
     glGenVertexArrays(1, &VertexArrayID);
     glBindVertexArray(VertexArrayID);
 
-    
+
     // generate cube and particle buffers once
     glGenBuffers(1, &elementbuffer);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementbuffer);
@@ -217,37 +219,37 @@ void Viewer::display(){
     glBindBuffer(GL_ARRAY_BUFFER, particles_color_buffer);
     // Initialize with empty (NULL) buffer : it will be updated later, each frame.
     glBufferData(GL_ARRAY_BUFFER, fluid->MaxParticles * 4 * sizeof(GLubyte), NULL, GL_STREAM_DRAW);
-    
-    
+
+
     static GLfloat* g_particule_position_size_data = new GLfloat[fluid->MaxParticles * 4];
     static GLubyte* g_particule_color_data         = new GLubyte[fluid->MaxParticles * 4];
     glm::mat4 ViewProjectionMatrix;
-    
+
     //Step 1 - construct mac grid
-    fluid->constructMACGrid(scene);
+    fluid->constructMACGrid();
 
 
     // Step 2 - Particle Seeding
-    fluid->genParticles(scene.particle_separation, scene.particleBounds.x, scene.particleBounds.y, scene.particleBounds.z, scene.positions);
+    fluid->genParticles();
 
     string title = "To Debanshu: " + std::to_string(fluid->ParticlesContainer.size()) + " Particles";
     glfwSetWindowTitle(window, title.c_str());
 
     double lastTime = glfwGetTime();
     bool fin = false;
-    int count = 0;
+    //update this to have CFL condition
     float dt = 0.015f, t = 0.f, frame_time = 1.f / 30.f;
     int counter = 0;
     while(!glfwWindowShouldClose(window)){
         // Clear the screen
         positions.clear();
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
+        //reset after every iteration
         dt = 0.015f, t = 0.f, frame_time = 1.f / 30.f;
 
         counter++;
         fluid->step(/*dt*/0.1f);
-        
+
         // setup camera
         camera.computeMatricesFromInputs(window);
         ViewMatrix = camera.getViewMatrix();
@@ -257,9 +259,9 @@ void Viewer::display(){
         ViewProjectionMatrix = ProjectionMatrix * ViewMatrix;
 
         drawCube();
-        
+
         int ParticlesCount = 0;
-        
+
         for(int i=0; i< fluid->ParticlesContainer.size(); i++){
 
             Particle& p = fluid->ParticlesContainer[i]; // shortcut
@@ -298,15 +300,6 @@ void Viewer::display(){
         // Create the PointDataGrid, position attribute is mandatory
         PointDataGrid::Ptr pointDataGrid = createPointDataGrid<PointDataGrid>(
                     positions, TypedAttributeArray<openvdb::Vec3f>::attributeType(), *transform);
-
-
-#ifdef DEBUG
-        // Output leaf nodes
-        std::cout << "Leaf Nodes: " << pointDataGrid->tree().leafCount() << std::endl;
-
-        // Output point count
-        std::cout << "Point Count: " << pointCount(pointDataGrid->tree()) << std::endl;
-#endif
         // Create a VDB file object.
         string file_name = "yoda_flip_";
         string ext = ".vdb";
@@ -324,12 +317,12 @@ void Viewer::display(){
         std::cout << some << std::endl;
 
         file.close();
-            
+
         int MaxParticles = fluid->ParticlesContainer.size();
 
         //  Use our shader
         glUseProgram(programID);
-        
+
         glBindBuffer(GL_ARRAY_BUFFER, particles_position_buffer);
         glBufferData(GL_ARRAY_BUFFER, MaxParticles * 4 * sizeof(GLfloat), NULL, GL_STREAM_DRAW); // Buffer orphaning, a common way to improve streaming perf. See above link for details.
         glBufferSubData(GL_ARRAY_BUFFER, 0, ParticlesCount * sizeof(GLfloat) * 4, g_particule_position_size_data);
@@ -353,9 +346,9 @@ void Viewer::display(){
 
         allocateParticleBuffers(billboard_vertex_buffer, particles_position_buffer, particles_color_buffer);
         drawParticles(ParticlesCount);
-        
+
         glDisable(GL_BLEND);
-        
+
 
 
         // Swap buffers
@@ -364,4 +357,3 @@ void Viewer::display(){
     }
     glfwTerminate();
 }
-

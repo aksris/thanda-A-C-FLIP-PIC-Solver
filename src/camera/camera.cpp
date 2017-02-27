@@ -56,6 +56,7 @@ void Camera::computeMatricesFromInputs(GLFWwindow* window){
     // Up vector
     glm::vec3 up = glm::cross( right, direction );
 
+    //Camera controls
     // Move forward
     if (glfwGetKey( window, GLFW_KEY_W ) == GLFW_PRESS){
         position += direction * deltaTime * speed;
@@ -81,7 +82,7 @@ void Camera::computeMatricesFromInputs(GLFWwindow* window){
         position -= -up * deltaTime * speed;
     }
 
-    float FoV = initialFOV;// - 5 * glfwGetMouseWheel();
+    float FoV = initialFOV;
 
     // Projection matrix : 45 Field of View, 4:3 ratio, display range : 0.1 unit <-> 100 units
     ProjectionMatrix = glm::perspective(FoV, 4.0f / 3.0f, 0.1f, 400.0f);

@@ -10,7 +10,7 @@ int main()
 
     scene.parseScene(filename, scene);
     char* obj = "src/resources/torus.obj";
-//    scene.LoadOBJ(obj, scene);
+    //scene.LoadOBJ(obj, scene);
     int width = 1920;
     int height = 1080;
     Viewer viewer(width, height, scene);
@@ -21,4 +21,3 @@ int main()
 
     return 0;
 }
-

@@ -1,20 +1,29 @@
 //
 //  fluidSolver.cpp
 //  Thanda
+
+/* Debugging and profiling are under same macro: DEBUG */
 //#define DEBUG
 #define VISCOSITY 0.95f
 #define EPSILON 0.00001f
 #define SEED 100
-//magic number 750
+//magic number 750 for seed
 #include "fluidSolver.hpp"
 #include "../scene/scene.hpp"
+
+/*
+ Random number generator between the range LO to HI
+*/
+float rand(int LO, int HI){
+    return LO + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(HI-LO)));
+}
 
 Particle::Particle(){
     pos = glm::vec3(0.f, 0.f, 0.f);
     speed = glm::vec3(0.f, 0.f, 0.f);
     r = 0;
     g = 0;
-    b = 220;
+    b = 220; //blue colored partciles to look more fluid-y
     a = 230;
     size = 0.01f;
     angle = 45.f;
@@ -85,12 +94,13 @@ MACGrid& MACGrid::operator =(const MACGrid& val){
     return *this;
 }
 
-FluidSolver::FluidSolver(const ivec3& resolution, const vec3& containerBounds){
+FluidSolver::FluidSolver(const Scene &iScene){
     LastUsedParticle = 0;
     MaxParticles = 5000000;
 
-    this->resolution = resolution;
-    this->containerBounds = containerBounds;
+    this->scene = iScene;
+    this->resolution = scene.resolution;
+    this->containerBounds = scene.containerBounds;
     this->cellSize = max(max(containerBounds.x/resolution.x, containerBounds.y/resolution.y),
                          containerBounds.z/resolution.z);
 
@@ -101,7 +111,7 @@ FluidSolver::~FluidSolver(){
     delete grid;
 }
 
-void FluidSolver::constructMACGrid(const Scene& scene){
+void FluidSolver::constructMACGrid(){
     resolution = scene.resolution;
     containerBounds = scene.containerBounds;
 
@@ -113,16 +123,13 @@ void FluidSolver::calculateGravityForces(Particle &p, float delta){
     p.pos += p.speed * delta;
 }
 
-float rand(int LO, int HI){
-    return LO + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(HI-LO)));
-}
-
-void FluidSolver::genParticles(float particle_separation, float boundx, float boundy, float boundz, const std::vector<vec3>& obj){
+void FluidSolver::genParticles(){
     Particle p;
     int iter;
-    for(int k = 2; k < (int)boundz; k++){
-        for(int j = 2; j < (int)boundy; j++){
-            for(int i = 2; i < (int)boundx; i++){
+    //counter for setting max particles in grid seed
+    for(int k = 2; k < (int)scene.particleBounds.z; k++){
+        for(int j = 2; j < (int)scene.particleBounds.y; j++){
+            for(int i = 2; i < (int)scene.particleBounds.x; i++){
                 iter=0;
                 while(iter < SEED){
                     p.gridIdx = ivec3(i,j,k);
@@ -133,11 +140,6 @@ void FluidSolver::genParticles(float particle_separation, float boundx, float bo
             }
         }
     }
-//    for(vec3 obj_point : obj){
-//        p.gridIdx = ivec3(obj_point.x, obj_point.y, obj_point.z);
-//        p.pos = obj_point;
-//        ParticlesContainer.push_back(p);
-//    }
 }
 
 void FluidSolver::FlipSolve(){
@@ -208,12 +210,12 @@ void FluidSolver::storeParticleVelocityToGrid(){
     int x,y,z;
     float h = this->cellSize, weight = 0.f;
     float fract_partx,fract_party,fract_partz;
-    
+
     for(int i = 0; i < ParticlesContainer.size(); ++i){
-        
+
         const Particle& par = ParticlesContainer.at(i);
         // this particle may have been advected in the previous step and it's gridIdx should be updated now
-        
+
         vec3 w_pos = par.pos;
         index = ivec3(floor(par.pos.x/cellSize), floor(par.pos.y/cellSize), floor(par.pos.z/cellSize));
         ParticlesContainer.at(i).gridIdx = index;
@@ -367,20 +369,6 @@ void FluidSolver::storeParticleVelocityToGrid(){
             }
         }
     }
-    
-#ifdef DEBUG
-    for(int k = 0; k < resolution.z; ++k){
-        for(int j = 0; j < resolution.y ; ++j){
-            for(int i = 0; i < resolution.x; ++i){
-                if (grid->P->getCellMark(i,j,k) == FLUID) {
-                    std::cout << "FLUID " << i << " " << j << " " << k << " " << std::endl;
-                }
-            }
-        }
-    }
-    std::cout<<"MARKED FLUID CELLS"<<std::endl;
-#endif
-
 }
 
 void FluidSolver::initializeMarkerGrid(){
@@ -492,17 +480,6 @@ void FluidSolver::buildDivergences(Eigen::VectorXd& rhs){
                                         (*grid->vel_W)(i, j, k+1) -
                                         (*grid->vel_W)(i, j, k)
                                         );
-#ifdef DEBUG
-                    if(id == 38){
-                        std::cout << (*grid->vel_U)(i+1, j, k) << ", " <<
-                                     (*grid->vel_U)(i, j, k)  << ", " <<
-                                     (*grid->vel_V)(i, j+1, k) << ", " <<
-                                     (*grid->vel_V)(i, j, k)    << ", " <<
-                                     (*grid->vel_W)(i, j, k+1) << ", " <<
-                                     (*grid->vel_W)(i, j, k) << "\t" <<
-                                        divergence << std::endl;
-                    }
-#endif
                     rhs[id] = -divergence;
                 }
             }
@@ -521,10 +498,6 @@ void FluidSolver::fillPressureGrid(Eigen::VectorXd x){
                     std::cout<<"ERROR with PCG"<<std::endl;
                     grid->P->setCell(i,j,k, ((float)x[id]));
                 }
-#ifdef DEBUG
-                    float x = (*grid->P)(i,j,k);
-                    std::cout << "Pressure at "<< i << " "<< j << " " << k << ": "<<x<< std::endl;
-#endif
             }
         }
     }
@@ -541,14 +514,14 @@ void FluidSolver::ProjectPressure(){
     Eigen::VectorXd rhs(m);
     rhs.setZero();
     buildDivergences(rhs);
-    
+
     std::vector<Eigen::Triplet<double>> coefficients;
     buildMatrixA(coefficients, m);
     Eigen::SparseMatrix<double> A(m,m);
     A.setZero();
     A.setFromTriplets(coefficients.begin(), coefficients.end());
-    
-    
+
+
     // solve
     Eigen::ConjugateGradient<Eigen::SparseMatrix<double>, Eigen::Lower|Eigen::Upper, Eigen::IncompleteCholesky<double>> pcg(A);  // performs a Cholesky factorization of A
     p = pcg.solve(rhs);
@@ -624,11 +597,11 @@ vec3 FluidSolver::integratePos(const vec3& pos, const vec3& speed, const float& 
         vec3 k4 = speed * (pos + k3);
         new_pos = pos + (0.1666666f) * (k1 + 2.f * k2 + 2.f * k3 + k4);
     }
-    
+
     new_pos.x = glm::clamp(new_pos.x+EPSILON, cellSize*1.f, cellSize*(resolution.x-1)-EPSILON);
     new_pos.y = glm::clamp(new_pos.y+EPSILON, cellSize*1.f, cellSize*(resolution.y-1)-EPSILON);
     new_pos.z = glm::clamp(new_pos.z+EPSILON, cellSize*1.f, cellSize*(resolution.z-1)-EPSILON);
-    
+
     return new_pos;
 }
 
@@ -672,7 +645,7 @@ void FluidSolver::ExtrapolateVelocity(){
                         || (j < y && (grid->P->getCellMark(i,j,k) == AIR)) &&
                         //me air, and near (solid or air)
                         (j > 0 && (grid->P->getCellMark(i,j-1,k) == AIR))) //me air, and near (solid or air)
-                    
+
                 {
                     extrapolate_grid_V.setCellMark(i,j,k,SOLID );
                 }
@@ -693,7 +666,7 @@ void FluidSolver::ExtrapolateVelocity(){
             }
         }
     }
-    
+
     //neighborhood of 0, based on distance
     for(int k = 0; k < z + 1; ++k){
         for(int j = 0; j < y + 1; ++j){
@@ -723,7 +696,7 @@ void FluidSolver::ExtrapolateVelocity(){
                 if((i < x && k < z) && extrapolate_grid_V.getCellMark(i, j, k) == SOLID){
                     unsigned int wsum = 0;
                     float sum = 0.0f;
-                    
+
                     for(unsigned int neighbor = 0; neighbor < 6; ++neighbor){
                         if(q[neighbor][0] >= 0 && q[neighbor][0]< x && q[neighbor][1] >= 0 &&
                                 q[neighbor][1] < y+1 && q[neighbor][2] >= 0 && q[neighbor][2] < z ) {
@@ -742,7 +715,7 @@ void FluidSolver::ExtrapolateVelocity(){
                 if((j < y && i < x) && extrapolate_grid_W.getCellMark(i, j, k) == SOLID){
                     unsigned int wsum = 0;
                     float sum = 0.0f;
-                    
+
                     for(unsigned int neighbor = 0; neighbor < 6; ++neighbor){
                         if(q[neighbor][0] >= 0 && q[neighbor][0]< x && q[neighbor][1] >= 0 &&
                                 q[neighbor][1] < y && q[neighbor][2] >= 0 && q[neighbor][2] < z+1 ) {
@@ -760,7 +733,7 @@ void FluidSolver::ExtrapolateVelocity(){
             }
         }
     }
-    
+
     // on the boundary there's only 1 FLUID neighbor (+1 in the dimension) - more efficient to set just that neighbor
 }
 
@@ -803,7 +776,7 @@ void FluidSolver::storeCurrentGridVelocities(){
     *this->grid->flip_vel_U = *this->grid->vel_U;
     *this->grid->flip_vel_V = *this->grid->vel_V;
     *this->grid->flip_vel_W = *this->grid->vel_W;
-    
+
 }
 
 void FluidSolver::clearGrid(){
@@ -827,25 +800,10 @@ void FluidSolver::clearGrid(){
 void FluidSolver::step(const float &dt){
     delta = dt;
     this->initializeMarkerGrid();
-    
+
     // Step 3 - Store Particle Velocity at current time step to MACGrid
     this->storeParticleVelocityToGrid();
 
-#ifdef DEBUG
-    std::cout << "[thanda] storeParticleVelocityToGrid Iteration" << std::endl;
-    std::cout << "[thanda] Cell Type :"<< this->grid->P->getCellMark(i, j, k) << " at idx " << i << " "<< j << " "<< k << " : "<< (*grid->vel_V)(i,j,k) << std::endl;
-    std::cout << "[thanda] Cell Type :"<< this->grid->P->getCellMark(i, j+1, k) << " at idx " << i << " "<< j+1 << " "<< k << " : "<< (*grid->vel_V)(i,j+1,k) << std::endl;
-    std::cout << "[thanda] Cell Type :"<< this->grid->P->getCellMark(i+1, j, k) << " at idx " << i+1 << " "<< j << " "<< k << " : "<< (*grid->vel_V)(i+1,j,k) << std::endl;
-    std::cout << "[thanda] Cell Type :"<< this->grid->P->getCellMark(i+1, j+1, k) << " at idx " << i+1 << " "<< j+1 << " "<< k << " : "<< (*grid->vel_V)(i+1,j+1,k) << std::endl; // is this valid
-
-    std::cout << "[thanda] Cell Type :"<< this->grid->P->getCellMark(i, j, k+1) << " at idx " << i << " "<< j << " "<< k+1 << " : "<< (*grid->vel_V)(i,j,k+1) << std::endl;
-    std::cout << "[thanda] Cell Type :"<< this->grid->P->getCellMark(i, j+1, k+1) << " at idx " << i << " "<< j+1 << " "<< k+1 << " : "<< (*grid->vel_V)(i,j+1,k+1) << std::endl;
-    std::cout << "[thanda] Cell Type :"<< this->grid->P->getCellMark(i+1, j, k+1) << " at idx " << i+1 << " "<< j << " "<< k+1 << " : "<< (*grid->vel_V)(i+1,j,k+1) << std::endl;
-    std::cout << "[thanda] Cell Type :"<< this->grid->P->getCellMark(i+1, j+1, k+1) << " at idx " << i+1 << " "<< j+1 << " "<< k+1 << " : "<< (*grid->vel_V)(i+1,j+1,k+1) << std::endl; // is this valid
-
-#endif
-    
-    
     // Step 4 - Store a temporary copy of Grid Velocities for FLIP
     this->storeCurrentGridVelocities();
 
@@ -853,35 +811,13 @@ void FluidSolver::step(const float &dt){
     this->CalculateGravityToCell(delta);
 
     this->setBoundaryVelocitiesToZero();
-    
+
     //pressure solve
     this->ProjectPressure();
-    
-#ifdef DEBUG
-    for(int k = 0; k < resolution.z; ++k){
-            for(int j = 0; j < resolution.y; ++j){
-                for(int i = 0; i < resolution.x; ++i){
-                    if (grid->P->getCellMark(i,j,k) == FLUID) {
-                        float divergence = 1.f/cellSize * (
-                                                           (*grid->vel_U)(i+1, j, k) -
-                                                           (*grid->vel_U)(i, j, k)
-                                                           +
-                                                           (*grid->vel_V)(i, j+1, k) -
-                                                           (*grid->vel_V)(i, j, k)
-                                                           +
-                                                           (*grid->vel_W)(i, j, k+1) -
-                                                           (*grid->vel_W)(i, j, k)
-                                                           );
-                        std::cout << "FLUID " << i << " " << j << " " << k << " " << divergence << std::endl;
-                    }
-                }
-            }
-        }
-        std::cout << "INCOMPRESSIBLE" << std::endl;
-    #endif
+
     this->ExtrapolateVelocity();
     this->setBoundaryVelocitiesToZero();
-    
+
     // Step  - Calculate new flip & pic velocities for each particle
     this->FlipSolve();
     this->PicSolve();
