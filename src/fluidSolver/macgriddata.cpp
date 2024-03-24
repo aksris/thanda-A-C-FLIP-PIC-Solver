@@ -1,15 +1,14 @@
 #include "macgriddata.h"
 #include <iostream>
 
-int gDimension[3] = {5, 5, 5};
 float LERP(float val1, float val2, float t){
     return (1 - t) * val1 + t * val2;
 }
 
 MACGridData::MACGridData(ivec3 dimensions, const vec3& containerBounds, float cellSize) :
-    resolution(dimensions),
     containerBounds(containerBounds),
-    CellSize(cellSize)
+    CellSize(cellSize),
+    resolution(dimensions)
 {
     this->containerBounds = containerBounds;
     data.resize(resolution.x * resolution.y * resolution.z);
@@ -51,6 +50,7 @@ void MACGridData::MACGridDataInitialize(){
     containerBounds[1] = CellSize*resolution.y;
     containerBounds[2] = CellSize*resolution.z;
     data.resize(resolution.x*resolution.y*resolution.z);
+    printf("mac data size: %lu\n", data.size());
     mData.resize(resolution.x*resolution.y*resolution.z);
     std::fill(data.begin(), data.end(), 0.f);
     std::fill(mData.begin(), mData.end(), 0.f);
@@ -108,6 +108,7 @@ void MACGridData::setCellAdd(const int &i, const int &j, const int &k, const flo
     int x = i;
     int y = j * resolution.x;
     int z = k * resolution.x * resolution.y;
+  //  printf("setcelladd: %d + %d + %d: %d, numtotal: %d\n", x, y, z, x + y + z, resolution.x * resolution.y * resolution.z);
     data.at(x+y+z) += val;
 }
 
@@ -172,8 +173,11 @@ float MACGridData::interpolate(const vec3& pt)
 
 void MACGridDataX::MACGridDataInitialize(){
 //    MACGridData::MACGridDataInitialize();
-
+    containerBounds[0] = CellSize * (resolution.x + 1);
+    containerBounds[1] = CellSize * resolution.y;
+    containerBounds[2] = CellSize * resolution.z;
     data.resize((resolution.x + 1) * resolution.y * resolution.z);
+
     std::fill(data.begin(), data.end(), 0.f);
 }
 

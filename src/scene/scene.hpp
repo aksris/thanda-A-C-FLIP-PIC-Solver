@@ -26,9 +26,14 @@ public:
 
     glm::ivec3 resolution;
 
-    float particle_separation;
+    float viscosity = 0.95f;
+    uint32_t seed = 1;
+    float gravity = 9.81f;
+    float displaySize = 0.05f;
+    bool rk2 = true;
+    float step = 0.0f;
 
-    void parseScene(const char* filename, Scene& scene);
+    void parseScene(const char* filename);
     GLuint LoadShaders(const char * vertex_file_path,const char * fragment_file_path);
     void LoadOBJ(const char* filename, Scene& scene);
     GLuint loadDDS(const char * imagepath);

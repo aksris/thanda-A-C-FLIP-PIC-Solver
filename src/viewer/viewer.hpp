@@ -26,11 +26,11 @@ using namespace std;
 //#define __APPLE__
 
 //#ifdef __linux__
-#include <openvdb/openvdb.h>
-#include <openvdb_points/openvdb.h>
-#include <openvdb_points/tools/PointDataGrid.h>
-#include <openvdb_points/tools/PointConversion.h>
-#include <openvdb_points/tools/PointCount.h>
+//#include <openvdb/openvdb.h>
+//#include <openvdb_points/openvdb.h>
+//#include <openvdb_points/tools/PointDataGrid.h>
+//#include <openvdb_points/tools/PointConversion.h>
+//#include <openvdb_points/tools/PointCount.h>
 //#endif
 
 
@@ -68,7 +68,7 @@ public:
 
 //#ifdef __linux__
     // Create some point positions
-    std::vector<openvdb::Vec3f> positions;
+    //std::vector<openvdb::Vec3f> positions;
 //#endif
 
 

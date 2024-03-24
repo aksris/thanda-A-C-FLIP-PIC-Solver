@@ -7,11 +7,11 @@
 
 Camera::Camera(){
     initialFOV = 45.f;
-    position = glm::vec3(2.f, 2.f, 5.5f / tan(glm::radians(initialFOV / 2.f)));
+    position = glm::vec3(14.f, 7.f, 20.f / tan(glm::radians(initialFOV / 2.f)));
     horizontalAngle = 3.14f;
     verticalAngle = 0.f;
     speed = 10.f;
-    mouseSpeed = 0.0005f;
+    mouseSpeed = 0.0007f;
 }
 glm::mat4 Camera::getViewMatrix(){
     return ViewMatrix;

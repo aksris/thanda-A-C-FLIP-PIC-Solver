@@ -217,7 +217,7 @@ struct PopulatePositionAttributeOp {
             typename AttributeWriteHandle<Vec3f>::Ptr attributeWriteHandle =
                 AttributeWriteHandle<Vec3f>::create(leaf->template attributeArray("P"));
 
-            Index64 index = 0;
+            uint64_t index = 0;
 
             const IndexArray& indices = pointIndexLeaf->indices();
 
@@ -280,7 +280,7 @@ struct PopulateAttributeOp {
             typename AttributeWriteHandle<ValueType>::Ptr attributeWriteHandle =
                 AttributeWriteHandle<ValueType>::create(leaf->attributeArray(mAttributeName));
 
-            Index64 index = 0;
+            uint64_t index = 0;
 
             const IndexArray& indices = pointIndexLeaf->indices();
 

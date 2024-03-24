@@ -15,6 +15,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/norm.hpp>
 #include "macgriddata.h"
+#include "../scene/scene.hpp"
 #include <iostream>
 #include <Eigen/Core>
 #include <Eigen/Dense>
@@ -27,7 +28,6 @@ using namespace glm;
 //for marking cells
 enum geomtype {AIR = 0, FLUID = 1, SOLID = 2};
 
-class Scene;
 class Particle{
 
 public:
@@ -35,8 +35,7 @@ public:
     ivec3 gridIdx;
     glm::vec3 pos, speed;
     unsigned char r,g,b,a; // Color
-    float size, angle, mass, density;
-    float life; // Remaining life of the particle. if <0 : dead and unused.
+    float size;
     float cameradistance; // *Squared* distance to the camera. if dead : -1.0f
 
     bool operator<(const Particle& that) const {
@@ -86,7 +85,7 @@ public:
 
     Scene scene;
 
-    int LastUsedParticle; int MaxParticles;
+    int MaxParticles;
     std::vector<Particle> ParticlesContainer;
 
     std::vector<Particle> particle_save;
@@ -155,8 +154,6 @@ public:
     /*advect using RK2*/
     vec3 integratePos(const vec3& pos, const vec3& speed, const float& time_step, bool RK2);
 
-    /*gravity forces on particle velocity*/
-    void calculateGravityForces(Particle& p, float delta);
     /*trilinear interpolation*/
     void ExtrapolateVelocity();
 

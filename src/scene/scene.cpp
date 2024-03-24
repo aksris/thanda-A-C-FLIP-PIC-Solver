@@ -8,7 +8,7 @@ Scene::Scene(){
 
 }
 
-void Scene::parseScene(const char* filename, Scene& scene){
+void Scene::parseScene(const char* filename){
     std::string JSON_CONTENT;
     std::ifstream JSONStream(filename, std::ios::in);
 
@@ -18,7 +18,7 @@ void Scene::parseScene(const char* filename, Scene& scene){
             JSON_CONTENT += "\n" + Line;
         JSONStream.close();
     }else{
-        printf("Impossible to open %s. Are you in the right directory ? Don't forget to read the FAQ !\n", filename);
+        //printf("Impossible to open %s. Are you in the right directory ? Don't forget to read the FAQ !\n", filename);
         getchar();
     }
 
@@ -48,20 +48,29 @@ void Scene::parseScene(const char* filename, Scene& scene){
     int gbound_y = root["grid"]["boundY"].asInt();
     int gbound_z = root["grid"]["boundZ"].asInt();
 
-    scene.containerBounds = glm::vec3(scale_x, scale_y, scale_z);
-    scene.particleBounds = glm::vec3(bound_x, bound_y, bound_z);
-    scene.resolution = glm::ivec3(gbound_x, gbound_y, gbound_z);
-    scene.particle_separation = separation;
+    containerBounds = glm::vec3(scale_x, scale_y, scale_z);
+    particleBounds = glm::vec3(bound_x, bound_y, bound_z);
+    resolution = glm::ivec3(gbound_x, gbound_y, gbound_z);
+
+    gravity = root["gravity"].asFloat();
+    seed = root["seed"].asInt();
+    viscosity = root["viscosity"].asFloat();
+    displaySize = root["displaySize"].asFloat();
+    rk2 = root["rk2"].asBool();
+    step = root["step"].asFloat();
+
 }
 
 void Scene::LoadOBJ(const char* filename, Scene& scene){
 #define TINYOBJLOADER_IMPLEMENTATION
     std::vector<tinyobj::shape_t> shapes;
     std::vector<tinyobj::material_t> materials;
+    tinyobj::attrib_t attrib;
 
+    std::string warn;
     std::string err;
     bool triangulate = false;
-    bool ret = tinyobj::LoadObj(shapes, materials, err, filename);
+    bool ret = tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, filename);
 
 
     if (!err.empty()) { // `err` may contain warning message.
@@ -75,13 +84,17 @@ void Scene::LoadOBJ(const char* filename, Scene& scene){
     for (size_t i = 0; i < shapes.size(); i++) {
 
         size_t indexOffset = 0;
-        for (size_t n = 0; n < shapes[i].mesh.num_vertices.size(); n++) {
-            int ngon = shapes[i].mesh.num_vertices[n];
+        for (size_t n = 0; n < shapes[i].mesh.num_face_vertices.size(); n++) {
+            int ngon = shapes[i].mesh.num_face_vertices[n];
             for (size_t f = 0; f < ngon; f++) {
-                unsigned int v = shapes[i].mesh.indices[indexOffset + f];
-                positions.push_back(glm::vec3(shapes[i].mesh.positions[3*v+0],
+                tinyobj::index_t idx = shapes[i].mesh.indices[indexOffset + f];
+                tinyobj::real_t vx = attrib.vertices[3 * size_t(idx.vertex_index) + 0];
+                tinyobj::real_t vy = attrib.vertices[3 * size_t(idx.vertex_index) + 1];
+                tinyobj::real_t vz = attrib.vertices[3 * size_t(idx.vertex_index) + 2];
+                positions.push_back(glm::vec3(vx, vy, vz));
+               /* positions.push_back(glm::vec3(shapes[i].mesh.positions[3*v+0],
                                                             shapes[i].mesh.positions[3*v+1],
-                                                            shapes[i].mesh.positions[3*v+2]));
+                                                            shapes[i].mesh.positions[3*v+2]));*/
 
             }
             indexOffset += ngon;
@@ -105,7 +118,7 @@ GLuint Scene::LoadShaders(const char * vertex_file_path,const char * fragment_fi
             VertexShaderCode += "\n" + Line;
         VertexShaderStream.close();
     }else{
-        printf("Impossible to open %s. Are you in the right directory ? Don't forget to read the FAQ !\n", vertex_file_path);
+        //printf("Impossible to open %s. Are you in the right directory ? Don't forget to read the FAQ !\n", vertex_file_path);
         getchar();
         return 0;
     }
@@ -125,7 +138,7 @@ GLuint Scene::LoadShaders(const char * vertex_file_path,const char * fragment_fi
 
 
     // Compile Vertex Shader
-    printf("Compiling shader : %s\n", vertex_file_path);
+    //printf("Compiling shader : %s\n", vertex_file_path);
     char const * VertexSourcePointer = VertexShaderCode.c_str();
     glShaderSource(VertexShaderID, 1, &VertexSourcePointer , NULL);
     glCompileShader(VertexShaderID);
@@ -136,13 +149,13 @@ GLuint Scene::LoadShaders(const char * vertex_file_path,const char * fragment_fi
     if ( InfoLogLength > 0 ){
         std::vector<char> VertexShaderErrorMessage(InfoLogLength+1);
         glGetShaderInfoLog(VertexShaderID, InfoLogLength, NULL, &VertexShaderErrorMessage[0]);
-        printf("%s\n", &VertexShaderErrorMessage[0]);
+        //printf("%s\n", &VertexShaderErrorMessage[0]);
     }
 
 
 
     // Compile Fragment Shader
-    printf("Compiling shader : %s\n", fragment_file_path);
+    //printf("Compiling shader : %s\n", fragment_file_path);
     char const * FragmentSourcePointer = FragmentShaderCode.c_str();
     glShaderSource(FragmentShaderID, 1, &FragmentSourcePointer , NULL);
     glCompileShader(FragmentShaderID);
@@ -153,13 +166,13 @@ GLuint Scene::LoadShaders(const char * vertex_file_path,const char * fragment_fi
     if ( InfoLogLength > 0 ){
         std::vector<char> FragmentShaderErrorMessage(InfoLogLength+1);
         glGetShaderInfoLog(FragmentShaderID, InfoLogLength, NULL, &FragmentShaderErrorMessage[0]);
-        printf("%s\n", &FragmentShaderErrorMessage[0]);
+        //printf("%s\n", &FragmentShaderErrorMessage[0]);
     }
 
 
 
     // Link the program
-    printf("Linking program\n");
+    //printf("Linking program\n");
     GLuint ProgramID = glCreateProgram();
     glAttachShader(ProgramID, VertexShaderID);
     glAttachShader(ProgramID, FragmentShaderID);
@@ -171,7 +184,7 @@ GLuint Scene::LoadShaders(const char * vertex_file_path,const char * fragment_fi
     if ( InfoLogLength > 0 ){
         std::vector<char> ProgramErrorMessage(InfoLogLength+1);
         glGetProgramInfoLog(ProgramID, InfoLogLength, NULL, &ProgramErrorMessage[0]);
-        printf("%s\n", &ProgramErrorMessage[0]);
+        //printf("%s\n", &ProgramErrorMessage[0]);
     }
 
 
@@ -186,7 +199,7 @@ GLuint Scene::LoadShaders(const char * vertex_file_path,const char * fragment_fi
 
 GLuint Scene::loadBMP_custom(const char * imagepath){
 
-    printf("Reading image %s\n", imagepath);
+    //printf("Reading image %s\n", imagepath);
 
     // Data read from the header of the BMP file
     unsigned char header[54];
@@ -198,23 +211,23 @@ GLuint Scene::loadBMP_custom(const char * imagepath){
 
     // Open the file
     FILE * file = fopen(imagepath,"rb");
-    if (!file)							    {printf("%s could not be opened. Are you in the right directory ? Don't forget to read the FAQ !\n", imagepath); getchar(); return 0;}
+    //if (!file)							    {printf("%s could not be opened. Are you in the right directory ? Don't forget to read the FAQ !\n", imagepath); getchar(); return 0;}
 
     // Read the header, i.e. the 54 first bytes
 
     // If less than 54 bytes are read, problem
     if ( fread(header, 1, 54, file)!=54 ){
-        printf("Not a correct BMP file\n");
+        //printf("Not a correct BMP file\n");
         return 0;
     }
     // A BMP files always begins with "BM"
     if ( header[0]!='B' || header[1]!='M' ){
-        printf("Not a correct BMP file\n");
+        //printf("Not a correct BMP file\n");
         return 0;
     }
     // Make sure this is a 24bpp file
-    if ( *(int*)&(header[0x1E])!=0  )         {printf("Not a correct BMP file\n");    return 0;}
-    if ( *(int*)&(header[0x1C])!=24 )         {printf("Not a correct BMP file\n");    return 0;}
+    if ( *(int*)&(header[0x1E])!=0  )         {/*printf("Not a correct BMP file\n");*/    return 0;}
+    if ( *(int*)&(header[0x1C])!=24 )         {/*printf("Not a correct BMP file\n");*/    return 0;}
 
     // Read the information about the image
     dataPos    = *(int*)&(header[0x0A]);
@@ -263,32 +276,6 @@ GLuint Scene::loadBMP_custom(const char * imagepath){
     return textureID;
 }
 
-// Since GLFW 3, glfwLoadTexture2D() has been removed. You have to use another texture loading library,
-// or do it yourself (just like loadBMP_custom and loadDDS)
-//GLuint loadTGA_glfw(const char * imagepath){
-//
-//	// Create one OpenGL texture
-//	GLuint textureID;
-//	glGenTextures(1, &textureID);
-//
-//	// "Bind" the newly created texture : all future texture functions will modify this texture
-//	glBindTexture(GL_TEXTURE_2D, textureID);
-//
-//	// Read the file, call glTexImage2D with the right parameters
-//	glfwLoadTexture2D(imagepath, 0);
-//
-//	// Nice trilinear filtering.
-//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-//	glGenerateMipmap(GL_TEXTURE_2D);
-//
-//	// Return the ID of the texture we just created
-//	return textureID;
-//}
-
-
 
 #define FOURCC_DXT1 0x31545844 // Equivalent to "DXT1" in ASCII
 #define FOURCC_DXT3 0x33545844 // Equivalent to "DXT3" in ASCII
@@ -303,7 +290,7 @@ GLuint Scene::loadDDS(const char * imagepath){
     /* try to open the file */
     fp = fopen(imagepath, "rb");
     if (fp == NULL){
-        printf("%s could not be opened. Are you in the right directory ? Don't forget to read the FAQ !\n", imagepath); getchar();
+        //printf("%s could not be opened. Are you in the right directory ? Don't forget to read the FAQ !\n", imagepath); getchar();
         return 0;
     }
 
@@ -383,7 +370,5 @@ GLuint Scene::loadDDS(const char * imagepath){
     free(buffer);
 
     return textureID;
-
-
 }
 

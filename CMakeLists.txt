@@ -36,23 +36,24 @@ set(GLEW_LIBRARY_DIR ${CMAKE_LIBRARY_PATH})
 
 # Use find_package & find_library to link with
 find_package(OpenGL REQUIRED)
-find_package(GLEW)
+#find_package(GLEW)
+find_library(GLEW_LIBRARY "glew32s" HINTS ${GLEW_LIBRARY_DIR})
 find_library(GLFW_LIBRARY "glfw3" HINTS ${GLFW_LIBRARY_DIR})
 find_library(JSONCPP "jsoncpp")
 find_library(TINYOBJ "tinyobjloader")
 
 
 # OpenVDB
-find_library(OPENVDB openvdb)
-find_library(OPENVDB_POINTS openvdb_points)
-find_library(BLOSC blosc)
-find_library(HALF Half)
-find_library(ZLIB z)
-find_library(BOOSTIO "boost_iostreams")
-find_library(BOOSTSYS "boost_system")
-find_library(TBB NAMES tbb tbbmalloc)
+#find_library(OPENVDB openvdb)
+#find_library(OPENVDB_POINTS openvdb_points)
+#find_library(BLOSC blosc)
+#find_library(HALF Half)
+#find_library(ZLIB z)
+#find_library(BOOSTIO "boost_iostreams")
+#find_library(BOOSTSYS "boost_system")
+#find_library(TBB NAMES tbb tbbmalloc)
 
-set(VDBLIBS ${HALF} ${BLOSC} ${ZLIB} ${TBB} ${BOOSTIO} ${BOOSTSYS} )
+#set(VDBLIBS ${HALF} ${BLOSC} ${ZLIB} ${TBB} ${BOOSTIO} ${BOOSTSYS} )
 
 add_definitions(
         -DTW_STATIC
@@ -63,7 +64,7 @@ add_definitions(
 )
 
 set(CORE_LIBS ${GLFW_LIBRARY} ${GLUT_LIBRARY} ${GLEW_LIBRARY} ${JSONCPP} ${OPENGL_LIBRARY} ${TINYOBJ})
-set(CORE_LIBS  ${CORE_LIBS} ${OPENVDB} ${OPENVDB_POINTS} ${VDBLIBS})
+#set(CORE_LIBS  ${CORE_LIBS} ${OPENVDB} ${OPENVDB_POINTS} ${VDBLIBS})
 
 # OSX-specific hacks/fixes
 if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
